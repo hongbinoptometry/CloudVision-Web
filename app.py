@@ -2500,8 +2500,9 @@ function resetCalibration(){factor=1;localStorage.removeItem(KEY);render();docum
                 elif parsed.path == "/cloud/detail":
                     self._send(app.public_detail_html(query.get("id", [""])[0]))
                 elif parsed.path in ("/", "/remote"):
-                    # 公開入口只提供受試者自我測驗；測驗者入口不顯示。
-                    self._send("""<!doctype html><html lang='zh-Hant'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>Cloud Vision</title><style>body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans TC',sans-serif;text-align:center;background:#f6f8fc;margin:0;padding:30px;color:#172033}.card{max-width:620px;margin:60px auto;background:#fff;border:1px solid #dbe5f1;border-radius:20px;padding:30px}.btn{display:block;padding:20px;margin:22px 0;background:#1769e0;color:#fff;border-radius:14px;text-decoration:none;font-size:24px;font-weight:800}</style></head><body><main class='card'><h2>✅ 已連到 Cloud Vision</h2><p>請按下方按鈕開始視覺功能自我測驗。</p><a class='btn' href='/cloud'>受試者開始測驗</a></main></body></html>""")
+                    # 正式雲端首頁直接顯示原本已完成的雙入口頁面。
+                    # 不再使用「已連到 Cloud Vision」的臨時單按鈕轉接頁。
+                    self._send(app.public_home_html())
                 elif parsed.path in ("/control", "/participant", "/command", "/answer", "/state", "/estimate", "/control_estimate") and not app._valid_connection_session(query):
                     self._send("此連線頁面已失效，請重新掃描電腦畫面上的最新 QR Code。", 403, "text/plain; charset=utf-8")
                 elif parsed.path == "/control":
@@ -5974,7 +5975,6 @@ def app(environ, start_response):
     # Railway 的啟動健康檢查等待時間很短。先立即回覆 200，
     # 同時在背景啟動原本的 Tk / HTTP 後端，避免部署被誤判失敗。
     if path in {"/health", "/healthz", "/__health"}:
-        _ensure_backend_started()
         return _status_response(start_response, "200 OK", "ok")
 
     _ensure_backend_started()
