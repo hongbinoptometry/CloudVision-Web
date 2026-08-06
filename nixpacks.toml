@@ -1,5 +1,8 @@
 [phases.setup]
-aptPkgs = ["xvfb", "python3-tk", "libgl1", "libglib2.0-0"]
+nixPkgs = ["python313"]
+
+[phases.install]
+cmds = ["python -m pip install --upgrade pip", "pip install -r requirements.txt"]
 
 [start]
-cmd = "gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 180"
+cmd = "gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120 app:app"
