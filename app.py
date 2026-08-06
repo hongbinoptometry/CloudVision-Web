@@ -124,7 +124,9 @@ class FullscreenAcuityChart:
         self._thorington_previous_fullscreen = False
         self.remote_server = None
         self.remote_thread = None
-        self.remote_port = int(os.environ.get("PORT", "8765"))
+        self.cloud_mode = os.environ.get("CLOUD_MODE", "0") == "1"
+        self.remote_port = int(os.environ.get("PORT", "8765")) if self.cloud_mode else 8765
+        self.public_domain = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "").strip()
         # 連線方式：wifi=電腦與手機連同一個 Wi-Fi；hotspot=手機連電腦行動熱點。
         # 預設使用共用 Wi-Fi，避免手機已連家中 Wi-Fi 時，QR Code 卻誤用 192.168.137.1。
         self.connection_mode = "wifi"
@@ -219,8 +221,11 @@ class FullscreenAcuityChart:
         self.root.after(50, lambda: self.set_fullscreen(True))
         self.root.after(150, self.refresh_chart)
         self.root.after(100, self._poll_remote_commands)
-        # 啟動時先讓測驗者選擇「共用 Wi-Fi」或「電腦行動熱點」。
-        self.root.after(350, self._start_for_environment)
+        # 桌面版保留原本 Wi-Fi／熱點選擇；雲端版直接啟動公開 HTTP 服務。
+        if self.cloud_mode:
+            self.root.after(250, self.start_remote_server)
+        else:
+            self.root.after(350, self.choose_connection_mode)
 
 
     def _load_hotspot_settings(self) -> None:
@@ -593,14 +598,6 @@ class FullscreenAcuityChart:
                     return ip
         return ips[0]
 
-    def _start_for_environment(self) -> None:
-        """Railway 雲端模式直接啟動網頁伺服器；本機模式保留原本 QR Code 視窗。"""
-        if os.environ.get("CLOUDVISION_CLOUD", "").strip().lower() in {"1", "true", "yes", "on"}:
-            self.connection_ip = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "").strip() or "127.0.0.1"
-            self.start_remote_server()
-            return
-        self.choose_connection_mode()
-
     def choose_connection_mode(self) -> None:
         """選擇連線方式，並在同一視窗下方即時顯示可掃描的 QR Code。"""
         # 先啟動伺服器，讓測驗者與受試者 QR Code 一開啟就能顯示。
@@ -878,9 +875,13 @@ class FullscreenAcuityChart:
         win.protocol("WM_DELETE_WINDOW", close_connection_window)
 
     def _update_remote_urls(self) -> None:
-        if not self.connection_ip:
-            self.connection_ip = self._select_connection_ip(self.connection_mode)
-        self.remote_url = f"http://{self.connection_ip}:{self.remote_port}"
+        if self.cloud_mode and self.public_domain:
+            self.remote_url = f"https://{self.public_domain}"
+            self.connection_ip = self.public_domain
+        else:
+            if not self.connection_ip:
+                self.connection_ip = self._select_connection_ip(self.connection_mode)
+            self.remote_url = f"http://{self.connection_ip}:{self.remote_port}"
         token = self.connection_session_token
         self.control_url = self.remote_url + f"/control?session={token}"
         self.answer_url = self.remote_url + f"/participant?session={token}"
@@ -5843,7 +5844,10 @@ startCalibration();startParticipantPolling(true);
 
 def main() -> None:
     root = tk.Tk()
-    FullscreenAcuityChart(root)
+    app = FullscreenAcuityChart(root)
+    if app.cloud_mode:
+        # Railway 以 Xvfb 提供虛擬顯示；不顯示桌面視窗，只保留完整 V4.4 網頁服務。
+        root.withdraw()
     root.mainloop()
 
 

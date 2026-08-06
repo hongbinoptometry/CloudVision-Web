@@ -1,1 +1,1 @@
-web: CLOUDVISION_CLOUD=1 xvfb-run -a python app.py
+web: CLOUD_MODE=1 xvfb-run -a python app.py
