@@ -79,7 +79,8 @@ DECIMAL_LEVELS = [
 
 
 class FullscreenAcuityChart:
-    def __init__(self, root: tk.Tk) -> None:
+    def __init__(self, root: tk.Tk, cloud_mode: bool = False) -> None:
+        self.cloud_mode = cloud_mode
         self.root = root
         self.root.title(APP_TITLE)
         self.root.configure(background="white")
@@ -215,16 +216,16 @@ class FullscreenAcuityChart:
         self._bind_keys()
         self.randomize_letters(refresh=False)
 
-        # 雲端環境直接啟動公開網頁；本機版維持原本的全畫面與連線選擇。
-        if os.environ.get("CLOUD_DEPLOY") == "1":
-            self.connection_ip = os.environ.get("PUBLIC_HOST", "127.0.0.1")
+        self.root.after(100, self._poll_remote_commands)
+        if self.cloud_mode:
+            # 雲端部署不顯示桌面視窗，也不開啟 Wi-Fi／熱點選擇視窗。
             self.root.withdraw()
-            self.root.after(50, self.start_remote_server)
-            self.root.after(100, self._poll_remote_commands)
+            self.connection_ip = "0.0.0.0"
+            self.start_remote_server()
         else:
+            # 本機教學版維持原本的全畫面與連線選擇流程。
             self.root.after(50, lambda: self.set_fullscreen(True))
             self.root.after(150, self.refresh_chart)
-            self.root.after(100, self._poll_remote_commands)
             self.root.after(350, self.choose_connection_mode)
 
 
@@ -875,12 +876,12 @@ class FullscreenAcuityChart:
         win.protocol("WM_DELETE_WINDOW", close_connection_window)
 
     def _update_remote_urls(self) -> None:
-        if not self.connection_ip:
-            self.connection_ip = self._select_connection_ip(self.connection_mode)
         public_base = os.environ.get("PUBLIC_BASE_URL", "").strip().rstrip("/")
         if public_base:
             self.remote_url = public_base
         else:
+            if not self.connection_ip:
+                self.connection_ip = self._select_connection_ip(self.connection_mode)
             self.remote_url = f"http://{self.connection_ip}:{self.remote_port}"
         token = self.connection_session_token
         self.control_url = self.remote_url + f"/control?session={token}"
@@ -5843,8 +5844,9 @@ startCalibration();startParticipantPolling(true);
 
 
 def main() -> None:
+    cloud_mode = os.environ.get("CLOUD_MODE", "").strip().lower() in {"1", "true", "yes", "on"}
     root = tk.Tk()
-    FullscreenAcuityChart(root)
+    FullscreenAcuityChart(root, cloud_mode=cloud_mode)
     root.mainloop()
 
 
