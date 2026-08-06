@@ -79,7 +79,8 @@ DECIMAL_LEVELS = [
 
 
 class FullscreenAcuityChart:
-    def __init__(self, root: tk.Tk) -> None:
+    def __init__(self, root: tk.Tk, cloud_mode: bool = False) -> None:
+        self.cloud_mode = cloud_mode
         self.root = root
         self.root.title(APP_TITLE)
         self.root.configure(background="white")
@@ -124,9 +125,7 @@ class FullscreenAcuityChart:
         self._thorington_previous_fullscreen = False
         self.remote_server = None
         self.remote_thread = None
-        self.cloud_mode = os.environ.get("CLOUD_MODE", "0") == "1"
-        self.remote_port = int(os.environ.get("PORT", "8765")) if self.cloud_mode else 8765
-        self.public_domain = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "").strip()
+        self.remote_port = int(os.environ.get("CLOUDVISION_BACKEND_PORT", "8765"))
         # 連線方式：wifi=電腦與手機連同一個 Wi-Fi；hotspot=手機連電腦行動熱點。
         # 預設使用共用 Wi-Fi，避免手機已連家中 Wi-Fi 時，QR Code 卻誤用 192.168.137.1。
         self.connection_mode = "wifi"
@@ -217,14 +216,16 @@ class FullscreenAcuityChart:
         self._bind_keys()
         self.randomize_letters(refresh=False)
 
-        # 啟動即全畫面。
-        self.root.after(50, lambda: self.set_fullscreen(True))
-        self.root.after(150, self.refresh_chart)
         self.root.after(100, self._poll_remote_commands)
-        # 桌面版保留原本 Wi-Fi／熱點選擇；雲端版直接啟動公開 HTTP 服務。
         if self.cloud_mode:
-            self.root.after(250, self.start_remote_server)
+            # Railway 後端：隱藏 Tkinter 視窗，只啟動原本的網頁伺服器。
+            self.root.withdraw()
+            self.connection_ip = "127.0.0.1"
+            self.start_remote_server()
         else:
+            # 本機教學版維持原本的全畫面與連線選擇流程。
+            self.root.after(50, lambda: self.set_fullscreen(True))
+            self.root.after(150, self.refresh_chart)
             self.root.after(350, self.choose_connection_mode)
 
 
@@ -875,9 +876,9 @@ class FullscreenAcuityChart:
         win.protocol("WM_DELETE_WINDOW", close_connection_window)
 
     def _update_remote_urls(self) -> None:
-        if self.cloud_mode and self.public_domain:
-            self.remote_url = f"https://{self.public_domain}"
-            self.connection_ip = self.public_domain
+        public_base = os.environ.get("PUBLIC_BASE_URL", "").strip().rstrip("/")
+        if public_base:
+            self.remote_url = public_base
         else:
             if not self.connection_ip:
                 self.connection_ip = self._select_connection_ip(self.connection_mode)
@@ -5843,12 +5844,101 @@ startCalibration();startParticipantPolling(true);
 
 
 def main() -> None:
+    cloud_mode = os.environ.get("CLOUDVISION_BACKEND", "").strip().lower() in {"1", "true", "yes", "on"}
     root = tk.Tk()
-    app = FullscreenAcuityChart(root)
-    if app.cloud_mode:
-        # Railway 以 Xvfb 提供虛擬顯示；不顯示桌面視窗，只保留完整 V4.4 網頁服務。
-        root.withdraw()
+    FullscreenAcuityChart(root, cloud_mode=cloud_mode)
     root.mainloop()
+
+
+# -----------------------------------------------------------------------------
+# Railway / Gunicorn WSGI compatibility layer
+# -----------------------------------------------------------------------------
+_backend_process = None
+_backend_lock = threading.Lock()
+_backend_port = 8765
+
+
+def _backend_is_ready(timeout: float = 0.5) -> bool:
+    try:
+        with socket.create_connection(("127.0.0.1", _backend_port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+def _ensure_backend_started() -> None:
+    global _backend_process
+    if _backend_is_ready():
+        return
+    with _backend_lock:
+        if _backend_is_ready():
+            return
+        if _backend_process is not None and _backend_process.poll() is None:
+            return
+        env = os.environ.copy()
+        env["CLOUDVISION_BACKEND"] = "1"
+        env["CLOUDVISION_BACKEND_PORT"] = str(_backend_port)
+        script_path = os.path.abspath(__file__)
+        xvfb_run = shutil.which("xvfb-run")
+        command = [xvfb_run, "-a", sys.executable, script_path] if xvfb_run else [sys.executable, script_path]
+        _backend_process = subprocess.Popen(command, env=env, stdout=sys.stdout, stderr=sys.stderr)
+
+
+def _status_response(start_response, status: str, message: str):
+    body = message.encode("utf-8")
+    start_response(status, [("Content-Type", "text/plain; charset=utf-8"), ("Content-Length", str(len(body))), ("Cache-Control", "no-store")])
+    return [body]
+
+
+def app(environ, start_response):
+    """Railway 使用的 WSGI 入口；把請求轉送到原本 V4.4 網頁伺服器。"""
+    _ensure_backend_started()
+    deadline = time.time() + 25
+    while time.time() < deadline and not _backend_is_ready():
+        if _backend_process is not None and _backend_process.poll() is not None:
+            break
+        time.sleep(0.2)
+    if not _backend_is_ready():
+        return _status_response(start_response, "503 Service Unavailable", "Cloud Vision 後端尚未啟動。請確認 Railway 已安裝 xvfb 與 python3-tk。")
+
+    from http.client import HTTPConnection
+    method = environ.get("REQUEST_METHOD", "GET")
+    path = environ.get("PATH_INFO", "/") or "/"
+    query = environ.get("QUERY_STRING", "")
+    target = path + (("?" + query) if query else "")
+    try:
+        length = int(environ.get("CONTENT_LENGTH", "") or 0)
+    except ValueError:
+        length = 0
+    body = environ["wsgi.input"].read(length) if length > 0 else None
+    headers = {}
+    for key, value in environ.items():
+        if key.startswith("HTTP_"):
+            name = key[5:].replace("_", "-").title()
+            if name not in {"Host", "Connection", "Content-Length"}:
+                headers[name] = value
+    if environ.get("CONTENT_TYPE"):
+        headers["Content-Type"] = environ["CONTENT_TYPE"]
+    if body is not None:
+        headers["Content-Length"] = str(len(body))
+    headers["Host"] = f"127.0.0.1:{_backend_port}"
+    headers["X-Forwarded-Proto"] = environ.get("HTTP_X_FORWARDED_PROTO", "https")
+    headers["X-Forwarded-For"] = environ.get("HTTP_X_FORWARDED_FOR", environ.get("REMOTE_ADDR", ""))
+
+    connection = HTTPConnection("127.0.0.1", _backend_port, timeout=120)
+    try:
+        connection.request(method, target, body=body, headers=headers)
+        response = connection.getresponse()
+        response_body = response.read()
+        excluded = {"connection", "keep-alive", "proxy-authenticate", "proxy-authorization", "te", "trailers", "transfer-encoding", "upgrade", "content-length"}
+        response_headers = [(name, value) for name, value in response.getheaders() if name.lower() not in excluded]
+        response_headers.append(("Content-Length", str(len(response_body))))
+        start_response(f"{response.status} {response.reason}", response_headers)
+        return [response_body]
+    except Exception as exc:
+        return _status_response(start_response, "502 Bad Gateway", f"Cloud Vision 連線失敗：{exc}")
+    finally:
+        connection.close()
 
 
 if __name__ == "__main__":
