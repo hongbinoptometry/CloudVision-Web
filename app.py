@@ -11698,6 +11698,131 @@ def main() -> None:
 
 
 
+# -----------------------------------------------------------------------------
+# Railway / Gunicorn WSGI compatibility layer
+# -----------------------------------------------------------------------------
+# The original Cloud Vision program contains its own HTTP server on port 8765
+# and a Tkinter control window. Railway starts web projects with `gunicorn
+# app:app`, so this WSGI proxy exposes the required `app` callable and starts
+# the original program in a virtual X display (Xvfb) inside the container.
+
+_backend_process = None
+_backend_lock = threading.Lock()
+_backend_port = 8765
+
+
+def _backend_is_ready(timeout: float = 0.5) -> bool:
+    try:
+        with socket.create_connection(("127.0.0.1", _backend_port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+def _ensure_backend_started() -> None:
+    global _backend_process
+    if _backend_is_ready():
+        return
+
+    with _backend_lock:
+        if _backend_is_ready():
+            return
+        if _backend_process is not None and _backend_process.poll() is None:
+            return
+
+        script_path = os.path.abspath(__file__)
+        env = os.environ.copy()
+        env["CLOUDVISION_BACKEND"] = "1"
+
+        xvfb_run = shutil.which("xvfb-run")
+        if xvfb_run:
+            command = [xvfb_run, "-a", sys.executable, script_path]
+        else:
+            command = [sys.executable, script_path]
+
+        _backend_process = subprocess.Popen(
+            command,
+            env=env,
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+        )
+
+
+def _status_response(start_response, status: str, message: str):
+    body = message.encode("utf-8")
+    start_response(status, [
+        ("Content-Type", "text/plain; charset=utf-8"),
+        ("Content-Length", str(len(body))),
+        ("Cache-Control", "no-store"),
+    ])
+    return [body]
+
+
+def app(environ, start_response):
+    """WSGI reverse proxy used by `gunicorn app:app` on Railway."""
+    _ensure_backend_started()
+
+    # Give the original local HTTP server a short time to finish starting.
+    deadline = time.time() + 25
+    while time.time() < deadline and not _backend_is_ready():
+        if _backend_process is not None and _backend_process.poll() is not None:
+            break
+        time.sleep(0.2)
+
+    if not _backend_is_ready():
+        return _status_response(
+            start_response,
+            "503 Service Unavailable",
+            "Cloud Vision 後端尚未啟動。請確認 Railway 已安裝 xvfb 與 python3-tk。",
+        )
+
+    from http.client import HTTPConnection
+
+    method = environ.get("REQUEST_METHOD", "GET")
+    path = environ.get("PATH_INFO", "/") or "/"
+    query = environ.get("QUERY_STRING", "")
+    target = path + (("?" + query) if query else "")
+
+    content_length = environ.get("CONTENT_LENGTH", "")
+    try:
+        length = int(content_length) if content_length else 0
+    except ValueError:
+        length = 0
+    body = environ["wsgi.input"].read(length) if length > 0 else None
+
+    headers = {}
+    for key, value in environ.items():
+        if key.startswith("HTTP_"):
+            name = key[5:].replace("_", "-").title()
+            if name not in {"Host", "Connection", "Content-Length"}:
+                headers[name] = value
+    if environ.get("CONTENT_TYPE"):
+        headers["Content-Type"] = environ["CONTENT_TYPE"]
+    if body is not None:
+        headers["Content-Length"] = str(len(body))
+    headers["Host"] = f"127.0.0.1:{_backend_port}"
+    headers["X-Forwarded-Proto"] = environ.get("HTTP_X_FORWARDED_PROTO", "https")
+    headers["X-Forwarded-For"] = environ.get("HTTP_X_FORWARDED_FOR", environ.get("REMOTE_ADDR", ""))
+
+    connection = HTTPConnection("127.0.0.1", _backend_port, timeout=120)
+    try:
+        connection.request(method, target, body=body, headers=headers)
+        response = connection.getresponse()
+        response_body = response.read()
+        response_headers = []
+        excluded = {"connection", "keep-alive", "proxy-authenticate", "proxy-authorization", "te", "trailers", "transfer-encoding", "upgrade"}
+        for name, value in response.getheaders():
+            if name.lower() not in excluded:
+                response_headers.append((name, value))
+        response_headers.append(("Content-Length", str(len(response_body))))
+        start_response(f"{response.status} {response.reason}", response_headers)
+        return [response_body]
+    except Exception as exc:
+        return _status_response(start_response, "502 Bad Gateway", f"Cloud Vision 連線失敗：{exc}")
+    finally:
+        connection.close()
+
+
 if __name__ == "__main__":
 
     main()

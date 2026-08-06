@@ -1,0 +1,5 @@
+[phases.setup]
+aptPkgs = ["xvfb", "python3-tk", "libgl1", "libglib2.0-0"]
+
+[start]
+cmd = "gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 180"
