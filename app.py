@@ -5941,5 +5941,41 @@ def app(environ, start_response):
         connection.close()
 
 
-if __name__ == "__main__":
+def _run_railway_entrypoint() -> None:
+    """Railway 即使以 `python app.py` 啟動，也先切換到 Web 伺服器。"""
+    port = os.environ.get("PORT", "").strip()
+    is_railway = bool(port) or bool(os.environ.get("RAILWAY_ENVIRONMENT")) or bool(os.environ.get("RAILWAY_PROJECT_ID"))
+    is_backend = os.environ.get("CLOUDVISION_BACKEND", "").strip().lower() in {"1", "true", "yes", "on"}
+
+    if is_backend:
+        # 只有內部背景程序才需要 Tkinter；此程序會由 xvfb-run 啟動。
+        main()
+        return
+
+    if is_railway:
+        # 避免 Railway 的自訂啟動命令仍是 `python app.py` 時直接呼叫 tk.Tk()。
+        bind_port = port or "8080"
+        gunicorn = shutil.which("gunicorn")
+        if gunicorn:
+            os.execv(gunicorn, [
+                gunicorn, "app:app",
+                "--bind", f"0.0.0.0:{bind_port}",
+                "--workers", "1",
+                "--threads", "4",
+                "--timeout", "180",
+                "--access-logfile", "-",
+                "--error-logfile", "-",
+            ])
+        # 極端情況：gunicorn 指令不存在時，使用 Python 內建 WSGI 伺服器。
+        from wsgiref.simple_server import make_server
+        with make_server("0.0.0.0", int(bind_port), app) as server:
+            print(f"Cloud Vision Web listening on 0.0.0.0:{bind_port}", flush=True)
+            server.serve_forever()
+        return
+
+    # 本機直接執行時仍保留原本桌面版。
     main()
+
+
+if __name__ == "__main__":
+    _run_railway_entrypoint()
