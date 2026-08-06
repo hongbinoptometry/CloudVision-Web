@@ -5879,8 +5879,7 @@ def _ensure_backend_started() -> None:
         env["CLOUDVISION_BACKEND"] = "1"
         env["CLOUDVISION_BACKEND_PORT"] = str(_backend_port)
         script_path = os.path.abspath(__file__)
-        xvfb_run = shutil.which("xvfb-run")
-        command = [xvfb_run, "-a", sys.executable, script_path] if xvfb_run else [sys.executable, script_path]
+        command = [sys.executable, script_path]
         _backend_process = subprocess.Popen(command, env=env, stdout=sys.stdout, stderr=sys.stderr)
 
 
@@ -5948,7 +5947,26 @@ def _run_railway_entrypoint() -> None:
     is_backend = os.environ.get("CLOUDVISION_BACKEND", "").strip().lower() in {"1", "true", "yes", "on"}
 
     if is_backend:
-        # 只有內部背景程序才需要 Tkinter；此程序會由 xvfb-run 啟動。
+        # Railway 沒有實體螢幕。不要只依賴外部 xvfb-run；
+        # 在背景程序內自行啟動 Xvfb 並設定 DISPLAY，確保 Tkinter 可建立視窗。
+        display = os.environ.get("DISPLAY", "").strip()
+        xvfb_process = None
+        if not display:
+            xvfb = shutil.which("Xvfb")
+            if not xvfb:
+                raise RuntimeError("找不到 Xvfb。請確認 nixpacks.toml 已安裝 xvfb。")
+            display = ":99"
+            xvfb_process = subprocess.Popen(
+                [xvfb, display, "-screen", "0", "1280x1024x24", "-nolisten", "tcp"],
+                stdout=sys.stdout,
+                stderr=sys.stderr,
+            )
+            os.environ["DISPLAY"] = display
+            # 等待虛擬螢幕完成初始化。
+            time.sleep(1.5)
+            if xvfb_process.poll() is not None:
+                raise RuntimeError("Xvfb 啟動失敗，無法提供 Tkinter 虛擬螢幕。")
+        print(f"Cloud Vision backend DISPLAY={os.environ.get('DISPLAY', '')}", flush=True)
         main()
         return
 

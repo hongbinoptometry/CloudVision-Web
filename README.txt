@@ -1,11 +1,13 @@
-Cloud Vision Web V4.4 Xvfb 最終修正版
+Cloud Vision Web V4.4 內建 Xvfb 修正版
 
-本次針對 Railway Log：
-_tkinter.TclError: no display name and no $DISPLAY environment variable
+修正內容：
+1. Gunicorn 正常監聽 Railway 的 PORT。
+2. 背景 V4.4 程序自行啟動 Xvfb :99。
+3. 自動設定 DISPLAY=:99 後才建立 Tkinter。
+4. 不再依賴 Railway 是否採用 xvfb-run 啟動命令。
 
-修正方式：
-1. Railway 建置時安裝 xvfb。
-2. 整個 gunicorn 由 xvfb-run 啟動，讓主程序與背景 Tkinter 程序都繼承 DISPLAY。
-3. V4.4 的首頁、雙入口、測驗與資料紀錄內容均未更改。
-
-請將四個檔案放在 GitHub 專案最外層，並覆蓋同名舊檔。
+GitHub 最外層只保留一份：
+app.py
+requirements.txt
+nixpacks.toml
+README.txt

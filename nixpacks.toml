@@ -1,9 +1,9 @@
 [phases.setup]
 nixPkgs = ["python313"]
-aptPkgs = ["xvfb"]
+aptPkgs = ["xvfb", "xauth"]
 
 [phases.install]
 cmds = ["python -m pip install --upgrade pip", "python -m pip install -r requirements.txt"]
 
 [start]
-cmd = "xvfb-run -a -s '-screen 0 1280x1024x24' gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 180 --access-logfile - --error-logfile -"
+cmd = "gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 180 --access-logfile - --error-logfile -"
