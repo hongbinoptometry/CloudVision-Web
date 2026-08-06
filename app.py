@@ -63,8 +63,8 @@ BASE_CSS = r"""
 *{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",Arial,sans-serif;background:var(--bg);color:var(--ink)}
 a{color:var(--blue)}.wrap{width:min(1050px,calc(100% - 28px));margin:0 auto;padding:28px 0 50px}.top{text-align:center;padding:20px 0}.brand{color:var(--blue);font-weight:800;letter-spacing:.08em}.top h1{font-size:clamp(32px,6vw,52px);margin:12px 0}.sub{color:var(--muted);line-height:1.7}.card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:24px;margin:18px 0;box-shadow:0 12px 30px rgba(35,61,99,.07)}
 .grid{display:grid;gap:16px}.grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}.grid.four{grid-template-columns:repeat(4,minmax(0,1fr))}.feature{padding:22px;border:1px solid var(--line);border-radius:18px;background:#fff}.feature h3{color:var(--blue);font-size:24px;margin:0 0 8px}.btn{display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:14px;padding:14px 22px;background:var(--blue);color:#fff;text-decoration:none;font-size:17px;font-weight:800;cursor:pointer}.btn:hover{background:var(--blue2)}.btn.secondary{background:#eef3fb;color:var(--blue)}.btn.danger{background:var(--danger)}.actions{display:flex;gap:12px;flex-wrap:wrap;align-items:center}.field{display:grid;gap:7px;margin:12px 0}.field label{font-weight:750}.field input,.field textarea{width:100%;border:1px solid #cfd8e5;border-radius:12px;padding:13px 14px;font-size:17px}.notice{padding:14px 16px;border-radius:12px;background:#eef7f2;color:var(--ok);font-weight:700}.small{font-size:14px;color:var(--muted)}
-.cal-line-wrap{overflow:auto;padding:28px 10px}.cal-line{height:7px;background:#111;border-radius:4px;margin:auto}.eye-card{text-align:center}.eye-title{font-size:28px;font-weight:850;color:var(--blue)}.cover-note{font-size:18px;padding:12px;background:#fff5cf;border-radius:12px;margin:14px 0}.optotype-stage{min-height:300px;display:grid;place-items:center;background:#fff;border:1px solid var(--line);border-radius:20px;margin:18px 0}.landolt{position:relative;border-style:solid;border-color:#111;border-radius:50%;display:block}.landolt::after{content:"";position:absolute;background:#fff}.landolt.gap-right::after{right:-4px;top:35%;width:42%;height:30%}.landolt.gap-left::after{left:-4px;top:35%;width:42%;height:30%}.landolt.gap-up::after{top:-4px;left:35%;width:30%;height:42%}.landolt.gap-down::after{bottom:-4px;left:35%;width:30%;height:42%}.dir-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.dir{font-size:30px;padding:18px 8px;border:1px solid #bfd0e8;border-radius:16px;background:#f7faff;color:var(--blue);cursor:pointer}.progress{height:12px;background:#e8eef6;border-radius:999px;overflow:hidden}.progress>div{height:100%;background:var(--blue);width:0}.result-number{font-size:54px;font-weight:900;color:var(--blue);margin:8px 0}.table-scroll{overflow:auto}table{border-collapse:collapse;width:100%;min-width:850px}th,td{padding:11px;border-bottom:1px solid var(--line);text-align:left}th{background:#eef3fb}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.stat{background:#eef3fb;border-radius:16px;padding:18px}.stat b{display:block;font-size:30px;color:var(--blue)}
-@media(max-width:760px){.grid.two,.grid.four,.stats{grid-template-columns:1fr}.dir-grid{grid-template-columns:repeat(2,1fr)}.card{padding:18px}.wrap{width:min(100% - 18px,1050px)}}
+.cal-line-wrap{overflow:auto;padding:32px 10px}.cal-line{height:7px;background:#111;border-radius:4px;margin:auto}.cal-controls{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;align-items:center}.cal-btn{border:1px solid #bfd0e8;border-radius:14px;background:#f7faff;color:var(--blue);font-size:18px;font-weight:850;padding:13px 8px;cursor:pointer}.cal-btn:active{transform:scale(.98)}.range{width:100%;accent-color:var(--blue)}.cal-readout{text-align:center;font-size:20px;font-weight:850;color:var(--blue);margin:10px 0}.cal-ok{background:#eef7f2;color:var(--ok);padding:12px 14px;border-radius:12px;font-weight:800}.cal-warn{background:#fff5cf;color:#6d5200;padding:12px 14px;border-radius:12px;font-weight:750}.eye-card{text-align:center}.eye-title{font-size:28px;font-weight:850;color:var(--blue)}.cover-note{font-size:18px;padding:12px;background:#fff5cf;border-radius:12px;margin:14px 0}.optotype-stage{min-height:300px;display:grid;place-items:center;background:#fff;border:1px solid var(--line);border-radius:20px;margin:18px 0}.landolt{position:relative;border-style:solid;border-color:#111;border-radius:50%;display:block}.landolt::after{content:"";position:absolute;background:#fff}.landolt.gap-right::after{right:-4px;top:35%;width:42%;height:30%}.landolt.gap-left::after{left:-4px;top:35%;width:42%;height:30%}.landolt.gap-up::after{top:-4px;left:35%;width:30%;height:42%}.landolt.gap-down::after{bottom:-4px;left:35%;width:30%;height:42%}.dir-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.dir{font-size:30px;padding:18px 8px;border:1px solid #bfd0e8;border-radius:16px;background:#f7faff;color:var(--blue);cursor:pointer}.progress{height:12px;background:#e8eef6;border-radius:999px;overflow:hidden}.progress>div{height:100%;background:var(--blue);width:0}.result-number{font-size:54px;font-weight:900;color:var(--blue);margin:8px 0}.table-scroll{overflow:auto}table{border-collapse:collapse;width:100%;min-width:850px}th,td{padding:11px;border-bottom:1px solid var(--line);text-align:left}th{background:#eef3fb}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.stat{background:#eef3fb;border-radius:16px;padding:18px}.stat b{display:block;font-size:30px;color:var(--blue)}
+@media(max-width:760px){.grid.two,.grid.four,.stats{grid-template-columns:1fr}.cal-controls{grid-template-columns:repeat(2,1fr)}.cal-controls .cal-btn:nth-child(3){grid-column:1/-1}.dir-grid{grid-template-columns:repeat(2,1fr)}.card{padding:18px}.wrap{width:min(100% - 18px,1050px)}}
 """
 
 HOME_HTML = r"""
@@ -77,19 +77,61 @@ HOME_HTML = r"""
 
 CAL_HTML = r"""
 <!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>5 公分校正</title><style>{{ css }}</style></head><body><main class="wrap">
-<header class="top"><div class="brand">Cloud Vision</div><h1>5 公分螢幕校正</h1><p class="sub">請用實體尺量下面黑線，輸入你量到的長度。</p></header>
-<section class="card"><div class="cal-line-wrap"><div id="line" class="cal-line"></div></div><div class="field"><label for="measured">實際量到幾公分？</label><input id="measured" type="number" min="1" max="10" step="0.1" value="5.0" inputmode="decimal"></div><p id="status" class="small"></p><div class="actions"><button class="btn" onclick="saveCal()">儲存校正</button><a class="btn secondary" href="{{ url_for('home') }}">回首頁</a></div></section></main>
+<header class="top"><div class="brand">Cloud Vision</div><h1>5 公分螢幕校正</h1><p class="sub">請拿實體尺量黑線，用按鈕或滑桿把黑線調整到剛好 5 公分。</p></header>
+<section class="card">
+<div class="cal-line-wrap"><div id="line" class="cal-line"></div></div>
+<div id="readout" class="cal-readout">目前倍率：100.0%</div>
+<div class="cal-controls">
+  <button class="cal-btn" type="button" onclick="adjust(-0.01)">縮小很多</button>
+  <button class="cal-btn" type="button" onclick="adjust(-0.002)">縮小一點</button>
+  <button class="cal-btn" type="button" onclick="resetCal()">回到原始</button>
+  <button class="cal-btn" type="button" onclick="adjust(0.002)">放大一點</button>
+  <button class="cal-btn" type="button" onclick="adjust(0.01)">放大很多</button>
+</div>
+<div class="field"><label for="slider">滑桿微調</label><input id="slider" class="range" type="range" min="50" max="180" step="0.1" value="100"></div>
+<div class="field"><label for="measured">也可以輸入你現在量到的長度（公分）</label><input id="measured" type="number" min="1" max="10" step="0.01" value="5.00" inputmode="decimal"></div>
+<p id="status" class="cal-warn">請先用尺確認黑線是否為 5 公分。</p>
+<div class="actions"><button class="btn secondary" type="button" onclick="autoCorrect()">依量到數值自動修正</button><button id="saveBtn" class="btn" type="button" onclick="saveCal()">確認並儲存校正</button><a class="btn secondary" href="{{ url_for('home') }}">回首頁</a></div>
+</section></main>
 <script>
-const nominalPxPerMm=96/25.4; const line=document.getElementById('line');
-function draw(){const factor=parseFloat(localStorage.getItem('cv_cal_factor')||'1');line.style.width=(50*nominalPxPerMm*factor)+'px';document.getElementById('status').textContent='目前校正倍率：'+factor.toFixed(3)}draw();
-function saveCal(){const m=parseFloat(document.getElementById('measured').value);if(!m||m<=0){alert('請輸入實際量到的公分數');return}const old=parseFloat(localStorage.getItem('cv_cal_factor')||'1');const factor=old*(5/m);localStorage.setItem('cv_cal_factor',factor.toString());draw();alert('校正完成，請再量一次；接近 5 公分即可開始測驗。')}
+const nominalPxPerMm=96/25.4;
+const line=document.getElementById('line');
+const slider=document.getElementById('slider');
+let factor=parseFloat(localStorage.getItem('cv_cal_factor')||'1');
+if(!Number.isFinite(factor)||factor<0.5||factor>1.8) factor=1;
+function clamp(v){return Math.min(1.8,Math.max(0.5,v))}
+function draw(){
+  factor=clamp(factor);
+  line.style.width=(50*nominalPxPerMm*factor)+'px';
+  slider.value=(factor*100).toFixed(1);
+  document.getElementById('readout').textContent='目前倍率：'+(factor*100).toFixed(1)+'%';
+}
+function adjust(delta){factor=clamp(factor+delta);draw()}
+function resetCal(){factor=1;draw();document.getElementById('status').className='cal-warn';document.getElementById('status').textContent='已回到原始大小，請重新用尺量。'}
+slider.addEventListener('input',()=>{factor=clamp(parseFloat(slider.value)/100);draw()});
+function autoCorrect(){
+  const m=parseFloat(document.getElementById('measured').value);
+  if(!m||m<=0){alert('請輸入實際量到的公分數');return}
+  factor=clamp(factor*(5/m));draw();
+  document.getElementById('status').className='cal-ok';
+  document.getElementById('status').textContent='已自動修正，請再用尺量一次；接近 5 公分即可儲存。';
+}
+function saveCal(){
+  localStorage.setItem('cv_cal_factor',factor.toString());
+  localStorage.setItem('cv_calibrated_at',new Date().toISOString());
+  document.getElementById('status').className='cal-ok';
+  document.getElementById('status').textContent='校正已儲存，後面的視力圖會使用這個比例。';
+  document.getElementById('saveBtn').textContent='已儲存校正';
+  setTimeout(()=>{location.href='{{ url_for("home") }}'},700);
+}
+draw();
 </script></body></html>
 """
 
 INFO_HTML = r"""
 <!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>開始三眼視力測驗</title><style>{{ css }}</style></head><body><main class="wrap"><header class="top"><div class="brand">Cloud Vision</div><h1>三眼視力測驗</h1><p class="sub">測試距離為 1 公尺，流程為右眼 → 左眼 → 雙眼。</p></header>
 <section class="card"><form id="info"><div class="grid two"><div class="field"><label>姓名（可不填）</label><input name="subject_name" maxlength="30"></div><div class="field"><label>受測者代碼（可不填）</label><input name="subject_code" maxlength="30" placeholder="例如 A001"></div></div><div class="field"><label>備註（可不填）</label><textarea name="notes" rows="3"></textarea></div><div class="notice">請先確認已完成 5 公分校正，並讓眼睛距離螢幕約 1 公尺。</div><br><button class="btn" type="submit">開始測驗</button></form></section></main>
-<script>document.getElementById('info').addEventListener('submit',e=>{e.preventDefault();const d=Object.fromEntries(new FormData(e.target));sessionStorage.setItem('cv_subject',JSON.stringify(d));sessionStorage.setItem('cv_started_at',new Date().toISOString());location.href='{{ url_for("acuity_test") }}';});</script></body></html>
+<script>document.getElementById('info').addEventListener('submit',e=>{e.preventDefault();if(!localStorage.getItem('cv_cal_factor')){if(!confirm('尚未找到校正紀錄，仍要開始測驗嗎？'))return}const d=Object.fromEntries(new FormData(e.target));sessionStorage.setItem('cv_subject',JSON.stringify(d));sessionStorage.setItem('cv_started_at',new Date().toISOString());sessionStorage.removeItem('cv_result');location.href='{{ url_for("acuity_test") }}';});</script></body></html>
 """
 
 TEST_HTML = r"""
@@ -97,13 +139,13 @@ TEST_HTML = r"""
 <section class="card eye-card"><div class="progress"><div id="bar"></div></div><p id="phase" class="eye-title"></p><div id="cover" class="cover-note"></div><p id="levelText" class="small"></p><div class="optotype-stage"><span id="optotype" class="landolt"></span></div><p>請選擇缺口方向</p><div class="dir-grid"><button class="dir" data-dir="up">↑</button><button class="dir" data-dir="down">↓</button><button class="dir" data-dir="left">←</button><button class="dir" data-dir="right">→</button></div></section></main>
 <script>
 const levels=[0.2,0.3,0.4,0.5,0.6,0.8,1.0,1.2]; const eyes=[{key:'right_eye',name:'右眼',cover:'請遮住左眼，只用右眼看。'},{key:'left_eye',name:'左眼',cover:'請遮住右眼，只用左眼看。'},{key:'both_eyes',name:'雙眼',cover:'請張開雙眼一起看。'}];
-const dirs=['up','down','left','right']; let eyeIndex=0,levelIndex=0,trial=0,correct=0,current='',results={}; const trialsPerLevel=5;
+const dirs=['up','down','left','right']; let eyeIndex=0,levelIndex=0,trial=0,correct=0,current='',results={},locked=false,saving=false; const trialsPerLevel=5;
 function shuffledDir(){return dirs[Math.floor(Math.random()*dirs.length)]}
 function physicalSizeMm(v){return 1000*Math.tan((5/v)*Math.PI/(180*60))}
 function render(){const e=eyes[eyeIndex],v=levels[levelIndex];document.getElementById('phase').textContent=e.name+'視力';document.getElementById('cover').textContent=e.cover;document.getElementById('levelText').textContent='目前等級 '+v.toFixed(1)+'　題目 '+(trial+1)+' / '+trialsPerLevel;const total=(eyeIndex*levels.length*trialsPerLevel)+(levelIndex*trialsPerLevel)+trial;document.getElementById('bar').style.width=Math.min(100,total/(eyes.length*levels.length*trialsPerLevel)*100)+'%';current=shuffledDir();const factor=parseFloat(localStorage.getItem('cv_cal_factor')||'1');const pxPerMm=(96/25.4)*factor;const size=Math.max(12,physicalSizeMm(v)*pxPerMm);const stroke=size/5;const o=document.getElementById('optotype');o.className='landolt gap-'+current;o.style.width=size+'px';o.style.height=size+'px';o.style.borderWidth=stroke+'px'}
-function answer(dir){if(dir===current)correct++;trial++;if(trial<trialsPerLevel){render();return}const passed=correct>=3;if(passed){results[eyes[eyeIndex].key]=levels[levelIndex].toFixed(1);levelIndex++;trial=0;correct=0;if(levelIndex<levels.length){render();return}}finishEye()}
-function finishEye(){if(!results[eyes[eyeIndex].key])results[eyes[eyeIndex].key]=levelIndex===0?'<0.2':levels[Math.max(0,levelIndex-1)].toFixed(1);eyeIndex++;levelIndex=0;trial=0;correct=0;if(eyeIndex<eyes.length){alert('接下來測量'+eyes[eyeIndex].name+'。');render();return}saveAll()}
-async function saveAll(){const subject=JSON.parse(sessionStorage.getItem('cv_subject')||'{}');const started=sessionStorage.getItem('cv_started_at')||new Date().toISOString();const payload={...subject,...results,started_at:started,completed_at:new Date().toISOString(),calibration_value:parseFloat(localStorage.getItem('cv_cal_factor')||'1'),device_type:navigator.userAgent};const r=await fetch('{{ url_for("api_save") }}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const out=await r.json();if(!r.ok){alert(out.error||'儲存失敗');return}sessionStorage.setItem('cv_result',JSON.stringify({...results,session_code:out.session_code}));location.href='{{ url_for("result") }}'}
+function answer(dir){if(locked||saving)return;locked=true;if(dir===current)correct++;trial++;if(trial<trialsPerLevel){setTimeout(()=>{locked=false;render()},120);return}const passed=correct>=3;if(passed){results[eyes[eyeIndex].key]=levels[levelIndex].toFixed(1);levelIndex++;trial=0;correct=0;if(levelIndex<levels.length){setTimeout(()=>{locked=false;render()},120);return}}finishEye()}
+function finishEye(){locked=false;if(!results[eyes[eyeIndex].key])results[eyes[eyeIndex].key]=levelIndex===0?'<0.2':levels[Math.max(0,levelIndex-1)].toFixed(1);eyeIndex++;levelIndex=0;trial=0;correct=0;if(eyeIndex<eyes.length){alert('接下來測量'+eyes[eyeIndex].name+'。');render();return}saveAll()}
+async function saveAll(){if(saving)return;saving=true;document.querySelectorAll('.dir').forEach(b=>b.disabled=true);const subject=JSON.parse(sessionStorage.getItem('cv_subject')||'{}');const started=sessionStorage.getItem('cv_started_at')||new Date().toISOString();const payload={...subject,...results,started_at:started,completed_at:new Date().toISOString(),calibration_value:parseFloat(localStorage.getItem('cv_cal_factor')||'1'),device_type:navigator.userAgent};const r=await fetch('{{ url_for("api_save") }}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const out=await r.json();if(!r.ok){saving=false;document.querySelectorAll('.dir').forEach(b=>b.disabled=false);alert(out.error||'儲存失敗');return}sessionStorage.setItem('cv_result',JSON.stringify({...results,session_code:out.session_code}));location.href='{{ url_for("result") }}'}
 document.querySelectorAll('.dir').forEach(b=>b.addEventListener('click',()=>answer(b.dataset.dir)));render();
 </script></body></html>
 """
