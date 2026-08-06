@@ -5854,8 +5854,66 @@ def main() -> None:
 # Railway / Gunicorn WSGI compatibility layer
 # -----------------------------------------------------------------------------
 _backend_process = None
+_xvfb_process = None
 _backend_lock = threading.Lock()
 _backend_port = 8765
+
+
+def _ensure_virtual_display(env: dict | None = None) -> str:
+    """Ensure a working Xvfb display exists and return its DISPLAY value."""
+    global _xvfb_process
+    target_env = env if env is not None else os.environ
+    display = str(target_env.get("DISPLAY", "")).strip()
+    if display:
+        return display
+
+    xvfb = shutil.which("Xvfb")
+    if not xvfb:
+        raise RuntimeError("找不到 Xvfb；請確認 nixpacks.toml 已安裝 xvfb。")
+
+    display = ":99"
+    socket_path = "/tmp/.X11-unix/X99"
+    lock_path = "/tmp/.X99-lock"
+    # Remove stale files only when no Xvfb process owned by this app is alive.
+    if _xvfb_process is None or _xvfb_process.poll() is not None:
+        for stale in (socket_path, lock_path):
+            try:
+                os.remove(stale)
+            except FileNotFoundError:
+                pass
+            except OSError:
+                pass
+        _xvfb_process = subprocess.Popen(
+            [xvfb, display, "-screen", "0", "1280x1024x24", "-ac", "-nolisten", "tcp"],
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+        )
+
+    target_env["DISPLAY"] = display
+    os.environ["DISPLAY"] = display
+
+    deadline = time.time() + 10
+    while time.time() < deadline:
+        if _xvfb_process is not None and _xvfb_process.poll() is not None:
+            raise RuntimeError("Xvfb 啟動後立即結束，無法提供虛擬螢幕。")
+        if os.path.exists(socket_path):
+            # Verify that Tk can actually connect before continuing.
+            probe = None
+            try:
+                probe = tk.Tk()
+                probe.withdraw()
+                probe.update_idletasks()
+                return display
+            except tk.TclError:
+                pass
+            finally:
+                if probe is not None:
+                    try:
+                        probe.destroy()
+                    except Exception:
+                        pass
+        time.sleep(0.2)
+    raise RuntimeError("Xvfb 已啟動，但 Tkinter 在 10 秒內仍無法連上 DISPLAY=:99。")
 
 
 def _backend_is_ready(timeout: float = 0.5) -> bool:
@@ -5878,6 +5936,8 @@ def _ensure_backend_started() -> None:
         env = os.environ.copy()
         env["CLOUDVISION_BACKEND"] = "1"
         env["CLOUDVISION_BACKEND_PORT"] = str(_backend_port)
+        display = _ensure_virtual_display(env)
+        print(f"Cloud Vision parent prepared DISPLAY={display}", flush=True)
         script_path = os.path.abspath(__file__)
         command = [sys.executable, script_path]
         _backend_process = subprocess.Popen(command, env=env, stdout=sys.stdout, stderr=sys.stderr)
@@ -5947,26 +6007,10 @@ def _run_railway_entrypoint() -> None:
     is_backend = os.environ.get("CLOUDVISION_BACKEND", "").strip().lower() in {"1", "true", "yes", "on"}
 
     if is_backend:
-        # Railway 沒有實體螢幕。不要只依賴外部 xvfb-run；
-        # 在背景程序內自行啟動 Xvfb 並設定 DISPLAY，確保 Tkinter 可建立視窗。
-        display = os.environ.get("DISPLAY", "").strip()
-        xvfb_process = None
-        if not display:
-            xvfb = shutil.which("Xvfb")
-            if not xvfb:
-                raise RuntimeError("找不到 Xvfb。請確認 nixpacks.toml 已安裝 xvfb。")
-            display = ":99"
-            xvfb_process = subprocess.Popen(
-                [xvfb, display, "-screen", "0", "1280x1024x24", "-nolisten", "tcp"],
-                stdout=sys.stdout,
-                stderr=sys.stderr,
-            )
-            os.environ["DISPLAY"] = display
-            # 等待虛擬螢幕完成初始化。
-            time.sleep(1.5)
-            if xvfb_process.poll() is not None:
-                raise RuntimeError("Xvfb 啟動失敗，無法提供 Tkinter 虛擬螢幕。")
-        print(f"Cloud Vision backend DISPLAY={os.environ.get('DISPLAY', '')}", flush=True)
+        # The parent normally prepares DISPLAY before spawning this process.
+        # Keep this fallback so direct backend starts are safe too.
+        display = _ensure_virtual_display()
+        print(f"Cloud Vision backend verified DISPLAY={display}", flush=True)
         main()
         return
 

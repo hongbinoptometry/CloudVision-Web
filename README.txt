@@ -1,12 +1,15 @@
-Cloud Vision Web V4.4 內建 Xvfb 修正版
+Cloud Vision Web V4.4－Xvfb 套件名稱修正版
+
+本版針對 Railway Log：
+RuntimeError: 找不到 Xvfb
 
 修正內容：
-1. Gunicorn 正常監聽 Railway 的 PORT。
-2. 背景 V4.4 程序自行啟動 Xvfb :99。
-3. 自動設定 DISPLAY=:99 後才建立 Tkinter。
-4. 不再依賴 Railway 是否採用 xvfb-run 啟動命令。
+1. nixpacks.toml 將錯誤套件名稱 xvfb 改為 Nix 正式套件 xorg.xvfb。
+2. xauth 改為 xorg.xauth。
+3. 建置階段加入 command -v Xvfb 與 command -v xauth，若沒有真正安裝，Build 階段就會直接顯示原因。
+4. app.py、V4.4 雙入口與所有功能均未更動。
 
-GitHub 最外層只保留一份：
+GitHub 最外層必須只有一份：
 app.py
 requirements.txt
 nixpacks.toml
