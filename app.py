@@ -1719,23 +1719,33 @@ class FullscreenAcuityChart:
     def public_home_html(self) -> str:
         """公開首頁僅介紹平台與研究資訊，不在首頁啟動校正或測驗。"""
         return """<!doctype html><html lang='zh-Hant'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1,viewport-fit=cover'><title>Cloud Vision｜視覺功能平台</title><style>
-*{box-sizing:border-box}body{margin:0;background:linear-gradient(180deg,#eef5ff,#f7f9fc);color:#172033;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans TC',sans-serif}.wrap{max-width:900px;margin:auto;padding:34px 18px 70px}.hero{text-align:center;padding:22px 10px}.logo{font-size:48px}h1{font-size:38px;margin:5px 0}.subtitle{font-size:20px;color:#4d6078;margin:8px 0 24px}.card{background:#fff;border:1px solid #dce5f0;border-radius:22px;padding:26px;box-shadow:0 8px 28px rgba(29,51,84,.08);margin-bottom:18px}.intro{font-size:18px;line-height:1.8;text-align:center}.research{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:20px}.info{background:#f7faff;border:1px solid #dce7f6;border-radius:15px;padding:16px;text-align:center}.label{color:#64748b;font-size:14px}.value{font-size:20px;font-weight:900;margin-top:5px}.actions{display:grid;grid-template-columns:1fr 1fr;gap:14px}.btn{display:block;text-decoration:none;color:#fff;text-align:center;border-radius:16px;padding:20px 12px;font-size:21px;font-weight:900}.general{background:#1769e0}.professional{background:#14823b}.small{display:block;font-size:14px;font-weight:600;opacity:.92;margin-top:6px}.notice{font-size:14px;line-height:1.7;color:#64748b;text-align:center}.link{color:#244f91;font-weight:800}
-/* 裝置自動版面：由下方 JavaScript 在背景判斷，不顯示測試文字 */
-html.device-desktop .wrap{max-width:900px}
-html.device-tablet .wrap{max-width:820px;padding:28px 22px 64px}
-html.device-tablet .card{padding:24px}
-html.device-tablet .btn{padding:22px 14px;font-size:23px}
-html.device-phone .wrap{max-width:100%;padding:16px 12px 42px}
-html.device-phone .hero{padding:10px 6px 16px}
-html.device-phone .logo{font-size:40px}
-html.device-phone h1{font-size:30px}
-html.device-phone .subtitle{font-size:17px;margin-bottom:16px}
-html.device-phone .card{padding:18px;border-radius:17px}
-html.device-phone .intro{font-size:16px;line-height:1.7}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(180deg,#eef5ff,#f7f9fc);color:#172033;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans TC',sans-serif}.wrap{max-width:900px;margin:auto;padding:34px 18px 70px}.hero{text-align:center;padding:22px 10px}.logo{font-size:48px}h1{font-size:38px;margin:5px 0}.subtitle{font-size:20px;color:#4d6078;margin:8px 0 24px}.card{background:#fff;border:1px solid #dce5f0;border-radius:22px;padding:26px;box-shadow:0 8px 28px rgba(29,51,84,.08);margin-bottom:18px}.intro{font-size:18px;line-height:1.8;text-align:center}.research{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:20px}.info{background:#f7faff;border:1px solid #dce7f6;border-radius:15px;padding:16px;text-align:center}.label{color:#64748b;font-size:14px}.value{font-size:20px;font-weight:900;margin-top:5px}.actions{display:grid;grid-template-columns:1fr 1fr;gap:14px}.btn{display:block;text-decoration:none;color:#fff;text-align:center;border-radius:16px;padding:20px 12px;font-size:21px;font-weight:900}.general{background:#1769e0}.professional{background:#14823b}.small{display:block;font-size:14px;font-weight:600;opacity:.92;margin-top:6px}.notice{font-size:14px;line-height:1.7;color:#64748b;text-align:center}.link{color:#244f91;font-weight:800}.device-badge{position:fixed;top:14px;right:14px;z-index:9999;padding:10px 14px;border-radius:999px;background:#172033;color:#fff;font-weight:900;font-size:15px;box-shadow:0 6px 18px rgba(0,0,0,.18)}
+/* 三種裝置明顯不同，方便現場立即驗證 */
+html.device-desktop .wrap{max-width:980px;padding-top:42px}
+html.device-desktop .actions{grid-template-columns:1fr 1fr}
+html.device-desktop .btn{min-height:86px}
+html.device-tablet body{background:linear-gradient(180deg,#fff8e8,#f7f9fc)}
+html.device-tablet .wrap{max-width:880px;padding:34px 28px 72px}
+html.device-tablet .hero{padding-top:34px}
+html.device-tablet .card{padding:30px;border-radius:26px}
+html.device-tablet .intro{font-size:20px}
+html.device-tablet .btn{padding:26px 16px;font-size:25px;min-height:94px}
+html.device-tablet .device-badge{background:#a15c00}
+html.device-phone body{background:linear-gradient(180deg,#eefcf3,#f7f9fc)}
+html.device-phone .wrap{max-width:100%;padding:58px 12px 42px}
+html.device-phone .hero{padding:6px 6px 14px}
+html.device-phone .logo{font-size:36px}
+html.device-phone h1{font-size:29px}
+html.device-phone .subtitle{font-size:16px;margin-bottom:14px}
+html.device-phone .card{padding:17px;border-radius:17px}
+html.device-phone .intro{font-size:16px;line-height:1.65}
 html.device-phone .research,html.device-phone .actions{grid-template-columns:1fr}
-html.device-phone .btn{padding:19px 12px;font-size:21px;min-height:72px}
-@media(max-width:650px){h1{font-size:31px}.research,.actions{grid-template-columns:1fr}.wrap{padding-top:20px}.card{padding:20px}}
-</style></head><body><main class='wrap'><section class='hero'><div class='logo'>☁️👁️</div><h1>Cloud Vision</h1><div class='subtitle'>視覺功能測驗與教學平台</div></section><section class='card'><div class='intro'>本平台為教學與研究使用之 Beta 版本，提供視力、散光鐘、黃斑部 Amsler 方格、螢幕尺度校正，以及視覺功能相關教學工具。請依使用身分選擇入口，使用後可提供回饋協助改善。</div><div class='research'><div class='info'><div class='label'>開發者／學生</div><div class='value'>黃昭維</div><div>大葉大學研究所二年級</div></div><div class='info'><div class='label'>指導老師</div><div class='value'>黃敬堯</div><div>研究指導</div></div><div class='info'><div class='label'>聯絡方式</div><div class='value'>LINE ID</div><div>a0937587396</div></div><div class='info'><div class='label'>平台用途</div><div class='value'>研究・測驗・教學</div><div>瀏覽器直接使用</div></div></div></section><section class='actions'><a id='generalEntry' class='btn general' href='/cloud/general'>一般使用者<span class='small'>開始視覺功能自我測驗</span></a><a id='professionalEntry' class='btn professional' href='/cloud/professional'>專業使用者<span class='small'>填寫資料後進入測驗或教學</span></a></section><section class='card notice'>本平台結果僅供研究、教育與初步自我觀察，不作為醫療診斷依據。<br><a class='link' href='/cloud/disclaimer'>查看平台說明與完整免責聲明</a><br><br>© 2026 Cloud Vision｜開發者：黃昭維｜指導老師：黃敬堯</section></main><script>
+html.device-phone .research{gap:9px}
+html.device-phone .info{padding:13px}
+html.device-phone .btn{padding:22px 12px;font-size:23px;min-height:88px;border-radius:18px}
+html.device-phone .device-badge{top:8px;right:8px;background:#0b7a3b;font-size:14px;padding:9px 12px}
+@media(max-width:650px){h1{font-size:29px}.research,.actions{grid-template-columns:1fr}.wrap{padding-top:58px}.card{padding:17px}}
+</style></head><body><div id='deviceBadge' class='device-badge'>正在判斷裝置…</div><main class='wrap'><section class='hero'><div class='logo'>☁️👁️</div><h1>Cloud Vision</h1><div class='subtitle'>視覺功能測驗與教學平台</div></section><section class='card'><div class='intro'>本平台為教學與研究使用之 Beta 版本，提供視力、散光鐘、黃斑部 Amsler 方格、螢幕尺度校正，以及視覺功能相關教學工具。請依使用身分選擇入口，使用後可提供回饋協助改善。</div><div class='research'><div class='info'><div class='label'>開發者／學生</div><div class='value'>黃昭維</div><div>大葉大學研究所二年級</div></div><div class='info'><div class='label'>指導老師</div><div class='value'>黃敬堯</div><div>研究指導</div></div><div class='info'><div class='label'>聯絡方式</div><div class='value'>LINE ID</div><div>a0937587396</div></div><div class='info'><div class='label'>平台用途</div><div class='value'>研究・測驗・教學</div><div>瀏覽器直接使用</div></div></div></section><section class='actions'><a id='generalEntry' class='btn general' href='/cloud/general'>一般使用者<span class='small'>開始視覺功能自我測驗</span></a><a id='professionalEntry' class='btn professional' href='/cloud/professional'>專業使用者<span class='small'>填寫資料後進入測驗或教學</span></a></section><section class='card notice'>本平台結果僅供研究、教育與初步自我觀察，不作為醫療診斷依據。<br><a class='link' href='/cloud/disclaimer'>查看平台說明與完整免責聲明</a><br><br>© 2026 Cloud Vision｜開發者：黃昭維｜指導老師：黃敬堯</section></main><script>
 (function detectCloudVisionDevice(){
   const ua=navigator.userAgent||'';
   const uaData=navigator.userAgentData;
@@ -1752,6 +1762,8 @@ html.device-phone .btn{padding:19px 12px;font-size:21px;min-height:72px}
   root.classList.remove('device-phone','device-tablet','device-desktop');
   root.classList.add('device-'+device);
   root.dataset.device=device;
+  const badge=document.getElementById('deviceBadge');
+  if(badge){badge.textContent=device==='phone'?'📱 手機版':device==='tablet'?'▣ 平板版':'💻 電腦版';}
   try{localStorage.setItem('cloudVisionDeviceType',device)}catch(e){}
   for(const id of ['generalEntry','professionalEntry']){
     const link=document.getElementById(id);
