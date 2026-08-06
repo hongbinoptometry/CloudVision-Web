@@ -1,1 +1,1 @@
-web: CLOUD_MODE=1 xvfb-run -a python app.py
+web: gunicorn app:app --bind 0.0.0.0:$PORT
