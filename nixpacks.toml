@@ -1,8 +1,8 @@
 [phases.setup]
-nixPkgs = ["python313"]
+nixPkgs = ["python311", "python311Packages.pip", "xorg.xvfb", "tk", "zlib", "libjpeg", "freetype"]
 
 [phases.install]
-cmds = ["python -m pip install --upgrade pip", "pip install -r requirements.txt"]
+cmds = ["python -m pip install --upgrade pip", "python -m pip install -r requirements.txt"]
 
 [start]
-cmd = "gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 120 app:app"
+cmd = "CLOUDVISION_CLOUD=1 xvfb-run -a python app.py"
