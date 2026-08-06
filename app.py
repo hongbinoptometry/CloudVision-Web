@@ -5865,7 +5865,24 @@ def _ensure_virtual_display(env: dict | None = None) -> str:
     target_env = env if env is not None else os.environ
     display = str(target_env.get("DISPLAY", "")).strip()
     if display:
-        return display
+        # Railway/Nixpacks 有時會留下 DISPLAY=:0，但實際沒有可連線的 X server。
+        # 必須先用 Tk 實測，成功才沿用；失敗則清除並啟動自己的 Xvfb。
+        probe = None
+        try:
+            probe = tk.Tk()
+            probe.withdraw()
+            probe.update_idletasks()
+            return display
+        except tk.TclError:
+            target_env.pop("DISPLAY", None)
+            os.environ.pop("DISPLAY", None)
+            display = ""
+        finally:
+            if probe is not None:
+                try:
+                    probe.destroy()
+                except Exception:
+                    pass
 
     xvfb = shutil.which("Xvfb")
     if not xvfb:
