@@ -5968,18 +5968,34 @@ def _status_response(start_response, status: str, message: str):
 
 def app(environ, start_response):
     """Railway 使用的 WSGI 入口；把請求轉送到原本 V4.4 網頁伺服器。"""
-    _ensure_backend_started()
-    deadline = time.time() + 25
-    while time.time() < deadline and not _backend_is_ready():
-        if _backend_process is not None and _backend_process.poll() is not None:
-            break
-        time.sleep(0.2)
-    if not _backend_is_ready():
-        return _status_response(start_response, "503 Service Unavailable", "Cloud Vision 後端尚未啟動。請確認 Railway 已安裝 xvfb 與 python3-tk。")
-
-    from http.client import HTTPConnection
     method = environ.get("REQUEST_METHOD", "GET")
     path = environ.get("PATH_INFO", "/") or "/"
+
+    # Railway 的啟動健康檢查等待時間很短。先立即回覆 200，
+    # 同時在背景啟動原本的 Tk / HTTP 後端，避免部署被誤判失敗。
+    if path in {"/health", "/healthz", "/__health"}:
+        _ensure_backend_started()
+        return _status_response(start_response, "200 OK", "ok")
+
+    _ensure_backend_started()
+    if not _backend_is_ready():
+        if path == "/":
+            body = ("<!doctype html><html lang='zh-Hant'><head><meta charset='utf-8'>"
+                    "<meta http-equiv='refresh' content='3'>"
+                    "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+                    "<title>Cloud Vision 啟動中</title></head>"
+                    "<body style='font-family:sans-serif;text-align:center;padding:48px'>"
+                    "<h2>Cloud Vision 正在啟動</h2><p>系統準備完成後會自動重新整理。</p>"
+                    "</body></html>").encode("utf-8")
+            start_response("200 OK", [
+                ("Content-Type", "text/html; charset=utf-8"),
+                ("Content-Length", str(len(body))),
+                ("Cache-Control", "no-store"),
+            ])
+            return [body]
+        return _status_response(start_response, "503 Service Unavailable", "Cloud Vision 後端正在啟動，請稍後重試。")
+
+    from http.client import HTTPConnection
     query = environ.get("QUERY_STRING", "")
     target = path + (("?" + query) if query else "")
     try:
