@@ -1,17 +1,11 @@
-CloudVision Web V4.4 雲端啟動修正版
+Cloud Vision Web V4.4 Xvfb 最終修正版
 
-本次修正：
-1. Railway 即使仍以 python app.py 啟動，也會自動切換成 Gunicorn Web 模式。
-2. 不會再於 Railway 主程序直接執行 tk.Tk()，避免：
-   _tkinter.TclError: no display name and no $DISPLAY environment variable
-3. 只有內部 CLOUDVISION_BACKEND 程序才會透過 xvfb-run 執行 Tkinter。
-4. V4.4 原本的一般使用者／專業人員雙入口及測驗、紀錄功能均保留。
+本次針對 Railway Log：
+_tkinter.TclError: no display name and no $DISPLAY environment variable
 
-上傳方式：
-- GitHub 最外層只保留一份 app.py
-- 只保留一份 requirements.txt
-- 只保留一份 nixpacks.toml
-- 舊的 app(1).py、app (6).py、nixpacks (1).toml 等重複檔請不要當成啟動檔
+修正方式：
+1. Railway 建置時安裝 xvfb。
+2. 整個 gunicorn 由 xvfb-run 啟動，讓主程序與背景 Tkinter 程序都繼承 DISPLAY。
+3. V4.4 的首頁、雙入口、測驗與資料紀錄內容均未更改。
 
-Railway 正常啟動命令：
-gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 180
+請將四個檔案放在 GitHub 專案最外層，並覆蓋同名舊檔。
