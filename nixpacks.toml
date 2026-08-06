@@ -1,12 +1,21 @@
+providers = ["...", "python"]
+
 [phases.setup]
-nixPkgs = ["python313", "python313Packages.pip", "xorg.xvfb", "xorg.xauth", "tk"]
+nixPkgs = ["...", "python313"]
+aptPkgs = ["...", "xvfb", "xauth", "python3-tk"]
 
 [phases.install]
 cmds = [
   "python -m pip install --upgrade pip",
-  "python -m pip install -r requirements.txt",
+  "python -m pip install -r requirements.txt"
+]
+
+[phases.build]
+cmds = [
+  "echo 'Checking Railway runtime packages...'",
   "command -v Xvfb",
-  "command -v xauth"
+  "command -v xauth",
+  "python -c \"import tkinter; print('tkinter OK')\""
 ]
 
 [start]
