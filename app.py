@@ -1,4 +1,7 @@
-# Cloud Vision V3.0：教學／研究版；一般使用者匿名、專業人員分類登錄、使用統計與問卷自動寫入背景 Excel。
+# Cloud Vision 雙入口整合版｜瀏覽器先行 AI閱讀速度測試版
+# 基準：新版「一般使用者／專業人員」雙入口程式。
+# 整合來源：先前成功的 app (3).py 流程（5 cm 校正、右眼／左眼／雙眼視力、結果與使用時間紀錄、管理資料）。
+# 原則：保留新版雙入口、專業教學工具與既有雲端資料功能，不退回舊版單入口架構。
 # Cloud Vision V11.1-1：後台統計卡可點擊、今日名單可篩選、個人詳細資料。
 # Cloud Vision V10.7：只修改第一個確認視標頁，改為可捲動並加入 Safari 底部安全留白。
 # Cloud Vision V6.3：恢復完整校正流程，完整視力表頁可上下捲動到底部。
@@ -57,6 +60,7 @@ from email.message import EmailMessage
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, quote
+from pathlib import Path
 from tkinter import messagebox, ttk, simpledialog
 from PIL import Image, ImageDraw, ImageFont, ImageOps, ImageTk
 
@@ -79,8 +83,7 @@ DECIMAL_LEVELS = [
 
 
 class FullscreenAcuityChart:
-    def __init__(self, root: tk.Tk, cloud_mode: bool = False) -> None:
-        self.cloud_mode = cloud_mode
+    def __init__(self, root: tk.Tk) -> None:
         self.root = root
         self.root.title(APP_TITLE)
         self.root.configure(background="white")
@@ -125,7 +128,7 @@ class FullscreenAcuityChart:
         self._thorington_previous_fullscreen = False
         self.remote_server = None
         self.remote_thread = None
-        self.remote_port = int(os.environ.get("CLOUDVISION_BACKEND_PORT", "8765"))
+        self.remote_port = int(os.environ.get("PORT", "8765"))
         # 連線方式：wifi=電腦與手機連同一個 Wi-Fi；hotspot=手機連電腦行動熱點。
         # 預設使用共用 Wi-Fi，避免手機已連家中 Wi-Fi 時，QR Code 卻誤用 192.168.137.1。
         self.connection_mode = "wifi"
@@ -216,17 +219,12 @@ class FullscreenAcuityChart:
         self._bind_keys()
         self.randomize_letters(refresh=False)
 
+        # 啟動即全畫面。
+        self.root.after(50, lambda: self.set_fullscreen(True))
+        self.root.after(150, self.refresh_chart)
         self.root.after(100, self._poll_remote_commands)
-        if self.cloud_mode:
-            # Railway 後端：隱藏 Tkinter 視窗，只啟動原本的網頁伺服器。
-            self.root.withdraw()
-            self.connection_ip = "127.0.0.1"
-            self.start_remote_server()
-        else:
-            # 本機教學版維持原本的全畫面與連線選擇流程。
-            self.root.after(50, lambda: self.set_fullscreen(True))
-            self.root.after(150, self.refresh_chart)
-            self.root.after(350, self.choose_connection_mode)
+        # 啟動時先讓測驗者選擇「共用 Wi-Fi」或「電腦行動熱點」。
+        self.root.after(350, self.choose_connection_mode)
 
 
     def _load_hotspot_settings(self) -> None:
@@ -907,7 +905,9 @@ class FullscreenAcuityChart:
         return bool(supplied) and secrets.compare_digest(supplied, self.connection_session_token)
 
     def _ip_matches_current_mode(self, ip: str) -> bool:
-        """只接受目前連線模式所在網段的裝置，避免舊 Wi-Fi 頁面被誤算。"""
+        """只接受目前連線模式所在網段的裝置；雲端模式接受公開網路裝置。"""
+        if os.environ.get("CLOUD_MODE", "0") == "1":
+            return bool(ip)
         if not ip:
             return False
         if self.connection_mode == "hotspot":
@@ -1719,62 +1719,8 @@ class FullscreenAcuityChart:
     def public_home_html(self) -> str:
         """公開首頁僅介紹平台與研究資訊，不在首頁啟動校正或測驗。"""
         return """<!doctype html><html lang='zh-Hant'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1,viewport-fit=cover'><title>Cloud Vision｜視覺功能平台</title><style>
-*{box-sizing:border-box}body{margin:0;background:linear-gradient(180deg,#eef5ff,#f7f9fc);color:#172033;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans TC',sans-serif}.wrap{max-width:900px;margin:auto;padding:34px 18px 70px}.hero{text-align:center;padding:22px 10px}.logo{font-size:48px}h1{font-size:38px;margin:5px 0}.subtitle{font-size:20px;color:#4d6078;margin:8px 0 24px}.card{background:#fff;border:1px solid #dce5f0;border-radius:22px;padding:26px;box-shadow:0 8px 28px rgba(29,51,84,.08);margin-bottom:18px}.intro{font-size:18px;line-height:1.8;text-align:center}.research{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:20px}.info{background:#f7faff;border:1px solid #dce7f6;border-radius:15px;padding:16px;text-align:center}.label{color:#64748b;font-size:14px}.value{font-size:20px;font-weight:900;margin-top:5px}.actions{display:grid;grid-template-columns:1fr 1fr;gap:14px}.examiner-entry{display:block;margin-top:14px;text-decoration:none;color:#fff;text-align:center;border-radius:16px;padding:18px 12px;font-size:20px;font-weight:900;background:#27364a;border:2px solid #172033}.examiner-entry .small{font-size:14px}.examiner-entry:hover{filter:brightness(1.06)}.btn{display:block;text-decoration:none;color:#fff;text-align:center;border-radius:16px;padding:20px 12px;font-size:21px;font-weight:900}.general{background:#1769e0}.professional{background:#14823b}.small{display:block;font-size:14px;font-weight:600;opacity:.92;margin-top:6px}.notice{font-size:14px;line-height:1.7;color:#64748b;text-align:center}.link{color:#244f91;font-weight:800}.device-badge{position:fixed;top:14px;right:14px;z-index:9999;padding:10px 14px;border-radius:999px;background:#172033;color:#fff;font-weight:900;font-size:15px;box-shadow:0 6px 18px rgba(0,0,0,.18)}
-/* 三種裝置明顯不同，方便現場立即驗證 */
-html.device-desktop .wrap{max-width:980px;padding-top:42px}
-html.device-desktop .actions{grid-template-columns:1fr 1fr}
-html.device-desktop .btn{min-height:86px}
-html.device-tablet body{background:linear-gradient(180deg,#fff8e8,#f7f9fc)}
-html.device-tablet .wrap{max-width:880px;padding:34px 28px 72px}
-html.device-tablet .hero{padding-top:34px}
-html.device-tablet .card{padding:30px;border-radius:26px}
-html.device-tablet .intro{font-size:20px}
-html.device-tablet .btn{padding:26px 16px;font-size:25px;min-height:94px}
-html.device-tablet .device-badge{background:#a15c00}
-html.device-phone body{background:linear-gradient(180deg,#eefcf3,#f7f9fc)}
-html.device-phone .wrap{max-width:100%;padding:58px 12px 42px}
-html.device-phone .hero{padding:6px 6px 14px}
-html.device-phone .logo{font-size:36px}
-html.device-phone h1{font-size:29px}
-html.device-phone .subtitle{font-size:16px;margin-bottom:14px}
-html.device-phone .card{padding:17px;border-radius:17px}
-html.device-phone .intro{font-size:16px;line-height:1.65}
-html.device-phone .research,html.device-phone .actions{grid-template-columns:1fr}html.device-phone .examiner-entry{padding:20px 12px;font-size:22px;min-height:82px}
-html.device-phone .research{gap:9px}
-html.device-phone .info{padding:13px}
-html.device-phone .btn{padding:22px 12px;font-size:23px;min-height:88px;border-radius:18px}
-html.device-phone .device-badge{top:8px;right:8px;background:#0b7a3b;font-size:14px;padding:9px 12px}
-@media(max-width:650px){h1{font-size:29px}.research,.actions{grid-template-columns:1fr}.wrap{padding-top:58px}.card{padding:17px}}
-</style></head><body><div id='deviceBadge' class='device-badge'>正在判斷裝置…</div><main class='wrap'><section class='hero'><div class='logo'>☁️👁️</div><h1>Cloud Vision</h1><div class='subtitle'>視覺功能測驗與教學平台</div></section><section class='card'><div class='intro'>本平台為教學與研究使用之 Beta 版本，提供視力、散光鐘、黃斑部 Amsler 方格、螢幕尺度校正，以及視覺功能相關教學工具。請依使用身分選擇入口，使用後可提供回饋協助改善。</div><div class='research'><div class='info'><div class='label'>開發者／學生</div><div class='value'>黃昭維</div><div>大葉大學研究所二年級</div></div><div class='info'><div class='label'>指導老師</div><div class='value'>黃敬堯</div><div>研究指導</div></div><div class='info'><div class='label'>聯絡方式</div><div class='value'>LINE ID</div><div>a0937587396</div></div><div class='info'><div class='label'>平台用途</div><div class='value'>研究・測驗・教學</div><div>瀏覽器直接使用</div></div></div></section><section class='actions'><a id='generalEntry' class='btn general' href='/cloud/general'>一般使用者<span class='small'>開始視覺功能自我測驗</span></a><a id='professionalEntry' class='btn professional' href='/cloud/professional'>專業使用者<span class='small'>填寫資料後進入測驗或教學</span></a></section><a id='examinerEntry' class='examiner-entry' href='/examiner'>🔒 檢查者後台<span class='small'>密碼登入・查看今日資料・進入手機／iPad控制台</span></a><section class='card notice'>本平台結果僅供研究、教育與初步自我觀察，不作為醫療診斷依據。<br><a class='link' href='/cloud/disclaimer'>查看平台說明與完整免責聲明</a><br><br>© 2026 Cloud Vision｜開發者：黃昭維｜指導老師：黃敬堯</section></main><script>
-(function detectCloudVisionDevice(){
-  const ua=navigator.userAgent||'';
-  const uaData=navigator.userAgentData;
-  const touchPoints=navigator.maxTouchPoints||0;
-  const shortest=Math.min(window.innerWidth||0,window.innerHeight||0);
-  const longest=Math.max(window.innerWidth||0,window.innerHeight||0);
-  const isIPad=/iPad/i.test(ua)||(/Macintosh/i.test(ua)&&touchPoints>1);
-  const isAndroid=/Android/i.test(ua);
-  const isMobileUA=uaData&&typeof uaData.mobile==='boolean'?uaData.mobile:/Mobi|iPhone|iPod|Windows Phone/i.test(ua);
-  let device='desktop';
-  if(isIPad||(isAndroid&&!/Mobile/i.test(ua))||(touchPoints>1&&shortest>=600&&longest<=1400)) device='tablet';
-  else if(isMobileUA||shortest<600) device='phone';
-  const root=document.documentElement;
-  root.classList.remove('device-phone','device-tablet','device-desktop');
-  root.classList.add('device-'+device);
-  root.dataset.device=device;
-  const badge=document.getElementById('deviceBadge');
-  if(badge){badge.textContent=device==='phone'?'📱 手機版':device==='tablet'?'▣ 平板版':'💻 電腦版';}
-  try{localStorage.setItem('cloudVisionDeviceType',device)}catch(e){}
-  for(const id of ['generalEntry','professionalEntry','examinerEntry']){
-    const link=document.getElementById(id);
-    if(link){
-      const u=new URL(link.href,location.href);
-      u.searchParams.set('device',device);
-      link.href=u.pathname+u.search;
-    }
-  }
-  window.cloudVisionDeviceType=device;
-})();
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(180deg,#eef5ff,#f7f9fc);color:#172033;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans TC',sans-serif}.wrap{max-width:900px;margin:auto;padding:34px 18px 70px}.hero{text-align:center;padding:22px 10px}.logo{font-size:48px}h1{font-size:38px;margin:5px 0}.subtitle{font-size:20px;color:#4d6078;margin:8px 0 24px}.card{background:#fff;border:1px solid #dce5f0;border-radius:22px;padding:26px;box-shadow:0 8px 28px rgba(29,51,84,.08);margin-bottom:18px}.intro{font-size:18px;line-height:1.8;text-align:center}.research{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:20px}.info{background:#f7faff;border:1px solid #dce7f6;border-radius:15px;padding:16px;text-align:center}.label{color:#64748b;font-size:14px}.value{font-size:20px;font-weight:900;margin-top:5px}.actions{display:grid;grid-template-columns:1fr 1fr;gap:14px}.btn{display:block;text-decoration:none;color:#fff;text-align:center;border-radius:16px;padding:20px 12px;font-size:21px;font-weight:900}.general{background:#1769e0}.professional{background:#14823b}.small{display:block;font-size:14px;font-weight:600;opacity:.92;margin-top:6px}.notice{font-size:14px;line-height:1.7;color:#64748b;text-align:center}.link{color:#244f91;font-weight:800}@media(max-width:900px){.wrap{max-width:760px}.card{padding:22px}.btn{font-size:20px}}@media(max-width:650px){h1{font-size:31px}.research,.actions{grid-template-columns:1fr}.wrap{padding-top:20px}.card{padding:20px}}
+</style></head><body><main class='wrap'><section class='hero'><div class='logo'>☁️👁️</div><h1>Cloud Vision</h1><div class='subtitle'>視覺功能測驗與教學平台</div></section><section class='card'><div class='intro'>本平台為教學與研究使用之 Beta 版本，提供視力、散光鐘、黃斑部 Amsler 方格、螢幕尺度校正，以及視覺功能相關教學工具。請依使用身分選擇入口，使用後可提供回饋協助改善。</div><div class='research'><div class='info'><div class='label'>開發者／學生</div><div class='value'>黃昭維</div><div>大葉大學研究所二年級</div></div><div class='info'><div class='label'>指導老師</div><div class='value'>黃敬堯</div><div>研究指導</div></div><div class='info'><div class='label'>聯絡方式</div><div class='value'>LINE ID</div><div>a0937587396</div></div><div class='info'><div class='label'>平台用途</div><div class='value'>研究・測驗・教學</div><div>瀏覽器直接使用</div></div></div></section><section class='actions'><a id='generalEntry' class='btn general' href='/cloud/general'>一般使用者<span class='small'>開始視覺功能自我測驗</span></a><a id='professionalEntry' class='btn professional' href='/cloud/professional'>專業使用者<span class='small'>填寫資料後進入測驗或教學</span></a></section><section class='card notice'>本平台結果僅供研究、教育與初步自我觀察，不作為醫療診斷依據。<br><a class='link' href='/cloud/disclaimer'>查看平台說明與完整免責聲明</a><br><br>© 2026 Cloud Vision｜開發者：黃昭維｜指導老師：黃敬堯</section></main><script>
 const vk='cloudVisionVisitorV1019';
 let vid=localStorage.getItem(vk);
 if(!vid){vid=(crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random());localStorage.setItem(vk,vid)}
@@ -1853,11 +1799,919 @@ async function ensureGeneralEntry(){{
         return """<!doctype html><html lang='zh-Hant'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>專業使用免責聲明｜Cloud Vision</title><style>*{box-sizing:border-box}body{margin:0;background:#f5f8fc;color:#172033;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans TC',sans-serif}.wrap{max-width:780px;margin:auto;padding:28px 16px 70px}.card{background:#fff;border:1px solid #dce5f0;border-radius:20px;padding:26px;box-shadow:0 6px 22px rgba(29,51,84,.07)}h1{margin-top:0}.notice{background:#fff7df;border:1px solid #f1d58a;border-radius:14px;padding:17px;line-height:1.8}p{line-height:1.8}.agree{display:flex;gap:10px;align-items:flex-start;background:#f7faff;padding:14px;border-radius:12px;margin-top:17px}.agree input{width:22px;height:22px}.btn{width:100%;border:0;border-radius:13px;background:#14823b;color:#fff;font-size:19px;font-weight:900;padding:15px;margin-top:20px}.btn:disabled{background:#9aaba0}.back{display:block;text-align:center;margin-top:17px;color:#244f91;text-decoration:none;font-weight:800}</style></head><body><main class='wrap'><section class='card'><h1>專業使用免責聲明</h1><div class='notice'>Cloud Vision 提供視覺功能測驗、教學及研究輔助工具，不構成醫療診斷，也不能取代眼科醫師診察、完整驗光或其他專業評估。</div><p>測驗結果可能受到螢幕尺寸、校正、亮度、觀看距離、環境光線及操作方式影響。使用者應依專業判斷解讀結果；如有視力突然下降、影像扭曲、黑影、閃光、視野缺損或眼痛，應儘速安排眼科評估。</p><div class='agree'><input id='agree' type='checkbox'><label for='agree'>我已閱讀並了解以上內容，同意依專業與研究用途使用本平台。</label></div><button id='continue' class='btn' disabled>同意並進入專業工具</button><a class='back' href='/cloud/professional'>返回修改資料</a></section></main><script>const data=localStorage.getItem('cloudVisionProfessionalV2');if(!data)location.replace('/cloud/professional');const c=document.getElementById('agree'),b=document.getElementById('continue');c.addEventListener('change',()=>b.disabled=!c.checked);b.addEventListener('click',()=>{localStorage.setItem('cloudVisionProfessionalDisclaimerV2',new Date().toISOString());location.href='/cloud/professional/hub'});</script></body></html>"""
 
     def public_professional_hub_html(self) -> str:
-        """專業人員工作台：畫面只保留測驗與教學，背景資料與 Excel 功能維持不變。"""
-        return """<!doctype html><html lang='zh-Hant'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>專業人員工作台｜Cloud Vision</title><style>
-*{box-sizing:border-box}body{margin:0;background:#f5f8fc;color:#172033;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans TC',sans-serif}.wrap{max-width:980px;margin:auto;padding:28px 16px 70px}.head{text-align:center;margin-bottom:24px}.head h1{margin:0}.who{color:#64748b;margin-top:8px}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}.choice{display:block;text-decoration:none;color:#172033;background:#fff;border:1px solid #dce5f0;border-radius:20px;padding:28px;box-shadow:0 6px 20px rgba(29,51,84,.06)}.choice:hover{border-color:#1769e0}.icon{font-size:39px}.title{font-size:24px;font-weight:950;margin:8px 0}.desc{line-height:1.65;color:#607086}.blue{border-top:7px solid #1769e0}.green{border-top:7px solid #14823b}.back{display:block;text-align:center;margin-top:22px;color:#244f91;text-decoration:none;font-weight:800}@media(max-width:620px){.grid{grid-template-columns:1fr}}
-</style></head><body><main class='wrap'><header class='head'><h1>Cloud Vision 專業人員工作台</h1><div id='who' class='who'></div></header>
-<section class='grid'><a id='professionalTestEntry' class='choice blue' href='/cloud/professional/test'><div class='icon'>🧪</div><div class='title'>測驗</div><div class='desc'>沿用原本的 5 cm 校正、視力、散光鐘、黃斑部與視標大小工具。</div></a><a class='choice green' href='/cloud/professional/teaching'><div class='icon'>📚</div><div class='title'>教學</div><div class='desc'>沿用原本完整的視力幾何、視標大小、散光鐘與操作教學。</div></a></section><a class='back' href='/cloud'>返回 Cloud Vision 首頁</a></main><script>let d=null;try{d=JSON.parse(localStorage.getItem('cloudVisionProfessionalV2')||'null')}catch(e){}if(!d||!localStorage.getItem('cloudVisionProfessionalDisclaimerV2'))location.replace('/cloud/professional');else{document.getElementById('who').textContent=(d.name||'專業使用者')+'｜'+(d.role||'');const a=document.getElementById('professionalTestEntry');if(a)a.addEventListener('click',()=>{let vid='';try{vid=localStorage.getItem('cloudVisionVisitorV1019')||''}catch(e){}fetch('/cloud/event',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({event:'start',user_type:'專業人員',visitor_id:vid,professional_name:d.name||'',professional_role:d.role||'',professional_purpose:d.purpose||'',session_id:sessionStorage.getItem('cloudVisionCurrentSession')||d.session_id||''}),keepalive:true}).catch(()=>{})})}</script></body></html>"""
+        """專業人員驗證後的第一層功能選擇：原本視覺功能 / AI 閱讀速度。"""
+        return """<!doctype html><html lang='zh-Hant'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>專業功能選擇｜Cloud Vision</title><style>
+*{box-sizing:border-box}body{margin:0;background:#f5f8fc;color:#172033;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans TC',sans-serif}.wrap{max-width:980px;margin:auto;padding:28px 16px 70px}.head{text-align:center;margin-bottom:24px}.head h1{margin:0}.who{color:#64748b;margin-top:8px}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}.choice{display:block;text-decoration:none;color:#172033;background:#fff;border:1px solid #dce5f0;border-radius:20px;padding:32px;box-shadow:0 6px 20px rgba(29,51,84,.06)}.choice:hover{border-color:#1769e0}.icon{font-size:44px}.title{font-size:25px;font-weight:950;margin:8px 0}.desc{line-height:1.7;color:#607086}.blue{border-top:7px solid #1769e0}.purple{border-top:7px solid #7454c6}.back{display:block;text-align:center;margin-top:24px;color:#244f91;text-decoration:none;font-weight:800}@media(max-width:650px){.grid{grid-template-columns:1fr}}
+</style></head><body><main class='wrap'><header class='head'><h1>Cloud Vision 專業人員工作台</h1><div id='who' class='who'></div></header><section class='grid'><a class='choice blue' href='/cloud/professional/vision'><div class='icon'>👁️</div><div class='title'>視覺功能</div><div class='desc'>進入昨天已完成的測驗與教學功能。原本流程與資料紀錄保持不變。</div></a><a class='choice purple' href='/cloud/professional/reading'><div class='icon'>🎙️</div><div class='title'>AI 閱讀速度</div><div class='desc'>瀏覽器直接選擇中文、英文或數字材料，錄音 30 秒後進行 AI 分析。</div></a></section><a class='back' href='/cloud'>返回 Cloud Vision 首頁</a></main><script>let d=null;try{d=JSON.parse(localStorage.getItem('cloudVisionProfessionalV2')||'null')}catch(e){}if(!d||!d.name)location.replace('/cloud/professional');else document.getElementById('who').textContent=d.name+'｜'+(d.role||'專業人員');</script></body></html>"""
+
+    def public_professional_vision_html(self) -> str:
+        """昨天原本的專業測驗 / 教學入口，內容不改，只移到視覺功能第二層。"""
+        return """<!doctype html><html lang='zh-Hant'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>視覺功能｜Cloud Vision</title><style>
+*{box-sizing:border-box}body{margin:0;background:#f5f8fc;color:#172033;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans TC',sans-serif}.wrap{max-width:980px;margin:auto;padding:28px 16px 70px}.head{text-align:center;margin-bottom:24px}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}.choice{display:block;text-decoration:none;color:#172033;background:#fff;border:1px solid #dce5f0;border-radius:20px;padding:28px;box-shadow:0 6px 20px rgba(29,51,84,.06)}.icon{font-size:39px}.title{font-size:24px;font-weight:950;margin:8px 0}.desc{line-height:1.65;color:#607086}.blue{border-top:7px solid #1769e0}.green{border-top:7px solid #14823b}.back{display:block;text-align:center;margin-top:22px;color:#244f91;text-decoration:none;font-weight:800}@media(max-width:620px){.grid{grid-template-columns:1fr}}
+</style></head><body><main class='wrap'><header class='head'><h1>視覺功能</h1><p>以下就是昨天原本的專業功能。</p></header><section class='grid'><a class='choice blue' href='/cloud/professional/test'><div class='icon'>🧪</div><div class='title'>測驗</div><div class='desc'>5 cm 校正、視力、散光鐘、黃斑部與視標大小工具。</div></a><a class='choice green' href='/cloud/professional/teaching'><div class='icon'>📚</div><div class='title'>教學</div><div class='desc'>視力幾何、視標大小、散光鐘與操作教學。</div></a></section><a class='back' href='/cloud/professional/hub'>返回功能選擇</a></main></body></html>"""
+
+    def public_professional_reading_html(self) -> str:
+        """專業閱讀：依原桌面版完整流程移植到電腦瀏覽器，不另創流程。"""
+        materials_json = '{"中文": ["清晨的陽光從窗外照進房間，街道上的人們開始準備一天的工作。有人慢慢走向附近的公園，有人騎著腳踏車前往車站，也有人提早出門購買早餐。早餐店裡傳來咖啡與烤麵包的香氣，店員一邊整理餐點，一邊招呼剛進門的客人。孩子背著書包走進校門，彼此分享昨天發生的事情，老師也在教室裡準備今天的課程。天空十分明亮，微風吹過樹梢，葉片輕輕搖動，路旁的小鳥不時發出清脆的叫聲。城市逐漸熱鬧起來，每個人都按照自己的步調展開新的一天。", "午後的圖書館十分安靜，窗邊的座位灑著柔和的光線。有人低頭閱讀雜誌，有人使用電腦查找資料，也有人把重要內容寫進筆記本。服務台的工作人員整理歸還的書籍，並耐心回答讀者提出的問題。幾位學生圍著桌子討論報告，偶爾交換彼此的想法。牆上的時鐘緩慢前進，翻頁聲與鍵盤聲交替出現。大家在舒適的環境中專心學習，直到傍晚才收拾物品準備回家。", "週末早上，市場裡聚集了許多採買的人。攤位上擺著新鮮蔬菜、成熟水果和各種日常用品，商家熱情介紹今天的商品。顧客一面比較價格，一面挑選適合家人的食材。熟食區傳來陣陣香味，排隊的人耐心等待剛完成的餐點。小朋友跟在大人身旁，好奇地觀看四周。接近中午時，人潮逐漸散去，攤商開始整理貨品與清潔桌面，市場也慢慢恢復平靜。", "傍晚的河岸吹著涼爽的風，許多人沿著步道散步或慢跑。遠處的天空染上橘紅色，水面映出柔和的光影。有人牽著寵物緩慢前進，有人停在欄杆旁欣賞景色，也有人坐在長椅上聊天。自行車經過時會輕聲提醒前方行人，大家彼此禮讓。路燈一盞一盞亮起，周圍逐漸安靜。忙碌了一天的人們在這裡放鬆心情，享受短暫而舒服的休息時間。", "學校舉辦戶外活動的早晨，老師先確認學生的人數與裝備。大家依序上車，沿途觀看窗外的山景與農田。抵達目的地後，導覽員介紹當地的自然環境，並提醒每個人注意安全。學生分組觀察植物、記錄昆蟲，也拍下有趣的畫面。午餐時間，大家坐在樹蔭下分享食物與心得。活動結束前，各組整理今天的發現並上台報告。回程時雖然有些疲倦，大家仍興奮地討論這次難忘的經驗。", "社區活動中心今天安排健康講座，居民提早到場尋找座位。講師先說明規律運動和均衡飲食的重要，再示範簡單的伸展動作。參加者跟著口令活動肩膀、手臂和腿部，有問題時也會主動提出。休息期間，工作人員準備溫水並協助填寫資料。講座後半段介紹居家安全與日常保健，內容清楚而實用。活動結束時，大家領取說明單，並相約下次繼續參加社區課程。", "下雨的午後，咖啡店裡坐滿了躲雨的客人。玻璃窗上滑落一條條水痕，街上的車輛放慢速度。店員將熱飲送到桌邊，提醒客人小心杯子溫度。有人戴著耳機工作，有人翻閱書本，也有人和朋友輕聲交談。雨勢變小後，幾位客人收起電腦準備離開。門口的傘架排著不同顏色的雨傘，地面仍帶著些許水氣。整間店維持安穩的氣氛，讓人暫時忘記外面的潮濕與匆忙。", "旅行前一天，家人一起整理行李與確認行程。衣物依照天氣分類放入箱中，證件和車票則集中收在隨身袋裡。有人檢查相機電量，有人準備藥品與簡單食物，也有人再次查看住宿地址。大家討論出發時間，並設定好隔天的鬧鐘。為了避免遺漏，桌上放著一張清單，每完成一項就做上記號。所有準備工作結束後，家人安心休息，期待隔天能順利展開旅程。", "公園新設了一座小型花園，志工們一早就開始整理環境。有人鬆土，有人搬運花苗，也有人負責澆水與清除落葉。經過的居民停下腳步詢問植物名稱，小朋友則觀察蝴蝶在花朵間飛舞。工作人員在入口放置說明牌，提醒大家不要踩進種植區。中午前，原本空曠的角落已出現多種顏色。志工雖然滿身汗水，看到整齊的成果仍感到十分開心。", "夜晚的車站仍有不少旅客等待列車。電子看板不斷更新時間與月台資訊，廣播提醒大家保管隨身物品。有人坐在候車椅上休息，有人到商店購買飲料，也有人站在月台邊確認車次。列車進站前，工作人員引導旅客排隊並保持安全距離。車門打開後，乘客依序上下車，沒有推擠。列車再次出發，站內短暫安靜，接著又迎來下一批準備返家的旅客。"], "英文": ["Every morning, people begin the day in different ways. Some walk to a nearby park, some ride a bicycle to the station, and others stop to buy breakfast. The streets slowly become busy as students enter school and workers arrive at their offices. A regular routine can help people stay calm, focused, and ready for the tasks ahead.", "The public library is quiet in the afternoon. Readers sit near the windows, search for information, and write notes in small notebooks. Staff members return books to the shelves and answer questions at the front desk. A group of students discusses a project in a low voice. The peaceful room helps everyone concentrate until it is time to go home.", "On Saturday morning, the local market is full of color and sound. Farmers arrange fresh vegetables and fruit while customers compare prices and choose food for their families. The smell of warm bread comes from a nearby stall. Children follow their parents and look at the busy scene. Before noon, the crowd becomes smaller and the sellers begin to clean their tables.", "In the evening, many people walk beside the river. The sky turns orange and the water reflects the last light of the day. Some people run, some ride bicycles, and others sit on benches to talk. Street lamps come on one by one. After a long day, the cool air and quiet view give everyone a chance to relax.", "A class takes a short trip to a nature center. The teacher checks the student list before the bus leaves. At the center, a guide explains the plants, insects, and walking paths. Students work in groups, take notes, and share what they discover. At the end of the visit, each group gives a brief report before returning to school.", "The community center holds a health class for local residents. The speaker explains the value of regular exercise, balanced meals, and safe daily habits. Everyone follows a few simple stretching movements and asks questions during the break. Staff members provide water and printed information. The visitors leave with useful ideas they can practice at home.", "Rain falls steadily outside a small coffee shop. Drops move down the windows while cars travel slowly along the wet street. Inside, some customers work on computers, others read books, and a few friends talk quietly. When the rain becomes lighter, people close their notebooks, collect their umbrellas, and prepare to continue their day.", "The night before a trip, a family checks every part of the plan. Clothes are packed according to the weather, and tickets are placed with important documents. Someone charges the camera while another person prepares medicine and snacks. A checklist remains on the table so nothing is forgotten. When everything is ready, the family rests and looks forward to the journey.", "Volunteers build a small garden in an empty corner of the park. Some loosen the soil, some carry young plants, and others remove dry leaves. Children watch butterflies move between the flowers. A sign reminds visitors to stay on the path. By noon, the area is bright and colorful, and the volunteers are proud of their work.", "The train station remains busy late at night. Digital boards show departure times and platform numbers while announcements remind travelers to watch their belongings. People wait in line, buy drinks, and check their tickets. When a train arrives, passengers leave before new riders enter. The train soon moves away, and the platform becomes quiet for a moment."], "數字": ["12 47 305 68 921 54 730 16 482 95 207 63 814 39 560 72 143 88 690 25 417 50 936 31 274 69 805 14 352 97 621 43 780 26 519 84 160 75 398 21 647 90 234 58 710 36 489 82 105 67 923 40 318 76 550 29 861 44 172 99", "83 214 59 670 41 905 27 348 76 120 64 791 35 468 92 153 807 24 539 61 284 73 916 40 625 18 357 89 702 46 138 95 574 32 860 71 249 56 413 87 690 22 745 38 501 69 174 93 628 45 310 78 952 16 486 57 203 84 719 30", "45 802 17 369 94 251 63 710 28 586 72 134 89 905 36 472 51 680 23 317 97 540 68 129 84 763 42 218 90 654 31 487 75 106 59 832 24 395 87 621 43 970 16 548 69 203 91 754 38 460 27 815 64 132 98 576 40 289 73 901", "71 306 48 925 13 574 86 240 67 819 35 462 90 157 28 703 54 381 96 625 41 208 79 530 62 914 17 346 85 271 49 760 93 124 58 807 32 659 74 215 88 493 26 701 55 369 91 142 68 834 30 576 47 902 19 653 82 314 60 725", "29 641 87 150 53 794 36 208 95 472 61 830 14 569 78 243 90 316 45 702 68 127 84 956 31 480 73 205 59 618 92 347 26 801 64 139 85 574 40 713 97 252 56 890 18 463 71 305 88 620 34 179 76 542 21 938 67 410 93 286", "64 219 83 507 42 968 15 374 91 620 58 143 76 805 29 461 87 230 54 719 33 986 70 125 49 642 18 573 95 304 67 812 26 458 89 170 52 936 41 285 74 609 13 547 82 391 60 724 37 850 96 214 55 683 22 479 78 102 45 917", "38 705 16 492 81 263 57 940 24 618 73 150 96 427 31 864 52 209 89 576 40 713 65 128 93 804 27 349 76 510 14 682 59 235 87 961 43 708 21 496 90 157 68 320 54 879 32 641 75 218 97 503 46 790 11 365 84 924 60 237", "92 147 63 805 28 574 71 309 46 960 15 682 87 234 50 719 39 841 26 593 74 108 95 467 31 620 83 215 57 904 42 736 19 358 68 540 97 123 64 879 25 461 80 307 53 692 14 985 76 240 88 516 37 704 62 159 91 438 29 870", "17 584 92 306 45 718 63 240 89 571 34 806 72 159 96 423 28 650 81 237 54 904 39 716 65 182 93 507 21 648 77 310 46 895 13 562 84 279 58 931 30 475 69 120 87 643 25 708 94 351 61 826 42 197 75 580 16 934 53 260", "56 903 24 617 88 142 39 750 61 285 97 430 15 826 73 504 28 691 84 317 49 960 22 578 65 103 91 746 34 219 80 635 17 482 57 908 43 160 76 524 29 873 95 341 68 207 14 759 82 436 50 914 31 685 47 120 89 563 26 798"]}'
+        html_doc = r"""<!doctype html><html lang='zh-Hant'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>字母型視力表＋30秒閱讀 AI｜Cloud Vision</title><style>
+*{box-sizing:border-box}html,body{height:100%}body{margin:0;font-family:'Microsoft JhengHei','Noto Sans TC',Arial,sans-serif;background:#eee;color:#111}.desktop{min-width:1100px;min-height:100vh;background:#f3f3f3}.topbar{height:70px;padding:6px 10px;border-bottom:1px solid #999;background:#e8e8e8;display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap}.title{font-size:25px;font-weight:900;margin-right:8px}.row{display:flex;align-items:center;gap:6px;height:30px;font-size:14px}.row input,.row select{height:29px;border:1px solid #999;background:#fff;padding:3px 7px}.row input{width:78px}.btn{height:30px;border:1px solid #888;background:#efefef;padding:0 12px;font-weight:700;cursor:pointer}.btn:hover{background:#e1e1e1}.btn.primary{background:#dbe8f8;border-color:#6b89ad}.hint{width:100%;font-size:14px;margin-top:-4px}.chart{position:relative;height:calc(100vh - 98px);min-height:0;background:#f4f4f4;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain}.calLine{position:absolute;left:55px;top:35px;width:240px;border-top:4px solid #222}.calLine:before,.calLine:after{content:'';position:absolute;top:-11px;height:20px;border-left:3px solid #222}.calLine:before{left:0}.calLine:after{right:0}.calLabel{position:absolute;left:310px;top:27px;font-weight:800}.chartTitle{text-align:center;padding-top:85px;font-weight:900;font-size:17px}.acuityLabels{position:absolute;left:65px;top:130px;font-weight:700;color:#333;height:520px;width:70px}.logLabels{position:absolute;right:60px;top:130px;font-weight:700;height:520px;width:70px}.acuityLabels .acuityMark,.logLabels .acuityMark{position:absolute;left:0;line-height:1;white-space:nowrap;transform:translateY(-50%)}.logLabels .acuityMark{left:auto;right:0;text-align:right}.letters{position:absolute;left:50%;top:130px;transform:translateX(-50%);text-align:center;font-family:Arial,sans-serif;font-weight:900;line-height:1.15}.letters>div{white-space:nowrap;width:max-content;margin-left:auto;margin-right:auto}.letters div:nth-child(1){font-size:80px}.letters div:nth-child(2){font-size:64px}.letters div:nth-child(3){font-size:52px}.letters div:nth-child(4){font-size:42px}.letters div:nth-child(5){font-size:34px}.letters div:nth-child(6){font-size:28px}.letters div:nth-child(7){font-size:23px}.letters div:nth-child(8){font-size:19px}.letters div:nth-child(9){font-size:16px}.letters div:nth-child(10){font-size:13px}.letters div:nth-child(11){font-size:11px}.letters div:nth-child(12){font-size:9px}.letters div:nth-child(13){font-size:8px}.letters div:nth-child(14){font-size:7px}.letters div:nth-child(15){font-size:6px}.letters div:nth-child(16){font-size:5px}.letters div:nth-child(n+8){min-height:20px;line-height:20px}.footnote{position:absolute;top:720px;width:100%;text-align:center;font-size:13px;padding-bottom:18px}.statusline{height:28px;border-top:1px solid #aaa;background:#e5e5e5;padding:5px 10px;font-size:13px}
+/* 原版閱讀材料選擇視窗 */.modalShade{display:none;position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:30;align-items:center;justify-content:center}.modal{width:570px;background:#f0f0f0;border:1px solid #888;box-shadow:0 10px 35px #3338;padding:18px}.modal h2{text-align:center;margin:10px 0 8px;font-size:24px}.modal .sub{text-align:center;margin-bottom:12px}.box{border:1px solid #bbb;padding:12px;background:#f5f5f5}.formgrid{display:grid;grid-template-columns:120px 1fr 100px 1fr;gap:9px;align-items:center}.formgrid input,.formgrid select{height:30px;border:1px solid #aaa;padding:4px 7px}.modes{margin:14px 0 10px;display:grid;gap:8px}.versionline{display:flex;gap:12px;align-items:center}.versionline select{height:31px}.dialogBtns{text-align:right;margin-top:16px}.dialogBtns button{margin-left:8px}.micbox{margin-top:14px;padding:12px 14px;border:1px solid #aaa;background:#f7f7f7;font-size:14px;line-height:1.65}.micbox.ok{border-color:#568b57;background:#eef8ee}.micbox.warn{border-color:#b88424;background:#fff8e8}.micbox.bad{border-color:#b64242;background:#fff0f0}.micActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.smallbtn{height:28px;border:1px solid #888;background:#fff;padding:0 10px;cursor:pointer;font-weight:700}
+/* 30秒全螢幕閱讀 */.reader{display:none;position:fixed;inset:0;background:#fff;color:#111;z-index:60;overflow:auto}.readerText{box-sizing:border-box;margin:0 auto;padding:1.2cm 0 5cm;white-space:pre-wrap;line-height:1.18;font-weight:400;text-align:left;letter-spacing:0;word-spacing:normal;overflow-wrap:normal;word-break:normal}.readerTimer{position:fixed;right:28px;bottom:22px;font-size:26px;color:#111}.readerHint{position:fixed;left:28px;bottom:24px;color:#444}.readerStop{position:fixed;right:28px;top:22px;background:#fff;color:#111;border:1px solid #777;padding:8px 14px}
+/* AI progress */.progress{display:none;position:fixed;inset:0;background:#f2f2f2;z-index:80;align-items:center;justify-content:center}.progressCard{text-align:center;border:1px solid #aaa;background:#fff;padding:40px 65px;box-shadow:0 8px 30px #0003}.progressCard h2{font-size:27px}.spin{width:44px;height:44px;border:5px solid #ddd;border-top-color:#333;border-radius:50%;animation:spin 1s linear infinite;margin:18px auto}@keyframes spin{to{transform:rotate(360deg)}}
+/* AI 原版結果確認 */.review{display:none;position:fixed;inset:0;background:#eee;z-index:100;min-width:1100px;overflow:auto}.reviewTop{height:84px;padding:14px 18px;border-bottom:1px solid #999;background:#e9e9e9}.reviewTitle{font-size:30px;font-weight:900;display:flex;justify-content:space-between}.subjectLine{margin-top:12px;font-size:16px;font-weight:700;word-spacing:8px}.folderbar{height:42px;padding:6px 18px;border-bottom:1px solid #aaa;background:#f4f4f4;display:flex;align-items:center;gap:8px}.folderbar .path{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.reviewBody{height:calc(100vh - 205px);min-height:520px;display:grid;grid-template-columns:1fr 1fr;gap:0}.reviewPane{padding:10px 18px;border-right:1px solid #aaa;overflow:auto}.reviewPane:last-child{border-right:0}.oldpos{font-size:18px;font-weight:900;margin-bottom:8px}.refText{font-size:22px;line-height:1.75;white-space:pre-wrap}.hypTitle{font-weight:900;margin-bottom:7px}.hypBox{width:100%;height:calc(100% - 30px);min-height:400px;border:1px solid #999;font:21px/1.7 'Microsoft JhengHei';padding:10px;resize:none}.reviewStats{height:79px;border-top:1px solid #999;background:#ededed;padding:8px 18px;display:flex;align-items:center;gap:15px}.statText{font-size:18px;font-weight:900;line-height:1.5;flex:1}.reviewBtns{display:flex;gap:7px;flex-wrap:wrap}.reviewBtns button{height:32px}.yellow{background:#ffe96b}.readPrefix{background:#fff7bf}.readLast{background:#ffe66d;font-weight:900;color:#111}.saved{color:#176b2c;font-weight:900}.warn{color:#a52b21;font-weight:900}.hidden{display:none!important}.feedbackShade{display:none;position:fixed;inset:0;background:#0005;z-index:160;align-items:center;justify-content:center}.feedbackCard{width:min(520px,92vw);background:#fff;border:1px solid #888;padding:24px;box-shadow:0 12px 40px #0004;text-align:center}.feedbackCard h2{margin:0 0 8px;font-size:28px}.feedbackCard p{font-size:18px}.feedbackChoices{display:flex;justify-content:center;gap:14px;margin:18px 0}.feedbackChoice{min-width:130px;font-size:18px}.feedbackChoice.selected{outline:3px solid #444;background:#ffe96b}.feedbackCard textarea{width:100%;height:120px;padding:10px;font:16px/1.5 'Microsoft JhengHei';border:1px solid #aaa;resize:vertical}.feedbackActions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}#feedbackStatus{min-height:24px;margin-top:8px;font-weight:800}
+/* 完整幾何教學中心：同頁覆蓋顯示，不離開目前視力表流程 */
+.geometryOverlay{display:none;position:fixed;inset:0;z-index:120;background:#f2f5f8;overflow:hidden}
+.geoHead{height:48px;display:flex;align-items:center;justify-content:space-between;padding:7px 12px;border-bottom:1px solid #9ba7b5;background:#e8edf2;font-size:17px;font-weight:900}
+.geometryOverlay iframe{display:block;width:100%;height:calc(100vh - 48px);border:0;background:#f2f5f8}
+
+.analysisOverlay{display:none;position:fixed;inset:0;z-index:170;background:#f5f7fa;color:#182230;overflow:auto}
+.analysisWrap{max-width:1120px;margin:0 auto;padding:32px 24px 60px}
+.analysisTop{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid #d0d5dd;padding-bottom:18px}
+.analysisTop h1{margin:5px 0 0;font-size:34px}.analysisBrand{font-size:15px;font-weight:900;color:#2855a5}
+.analysisGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin:28px 0}
+.analysisCard{background:#fff;border:1px solid #d8dee8;border-radius:16px;padding:24px;text-align:center}
+.analysisCard h3{font-size:20px;margin:0 0 22px}.analysisLabel{color:#667085;font-weight:700}
+.analysisBig{font-size:40px;font-weight:900;margin:8px 0}.analysisSmall{font-size:15px;color:#475467;line-height:1.7}
+.analysisAdvice{background:#fff;border:1px solid #d8dee8;border-radius:16px;padding:24px;line-height:1.9;font-size:17px}
+.analysisAdvice h2{margin-top:0}.analysisBottom{text-align:center;margin-top:22px}
+@media(max-width:800px){.analysisGrid{grid-template-columns:1fr}}
+
+.profAIReport{display:none;position:fixed;inset:0;z-index:185;background:#f6f7f9;color:#182230;overflow:auto}
+.profAIWrap{max-width:1050px;margin:0 auto;padding:34px 24px 60px}
+.profAIHead{border-bottom:1px solid #d0d5dd;padding-bottom:18px}.profAIHead h1{margin:5px 0 0;font-size:34px}
+.profAIBrand{font-weight:900;color:#315ea8}.profAICards{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin:28px 0}
+.profAICard{background:#fff;border:1px solid #d7dee8;border-radius:16px;padding:24px}
+.profAICard h3{margin:0 0 16px;font-size:20px}.profAIBig{font-size:36px;font-weight:900;margin-bottom:8px}
+.profAIMeta{line-height:1.8;color:#475467}.profAIAnalysis,.profAISurvey{background:#fff;border:1px solid #d7dee8;border-radius:16px;padding:24px;margin-top:20px}
+.profAIAnalysis h2,.profAISurvey h2{margin-top:0}.profAIQ{margin:18px 0}.profAIQTitle{font-weight:800;margin-bottom:10px}
+.profAIChoices{display:flex;gap:10px;flex-wrap:wrap}.profAIChoice{padding:10px 18px;border:1px solid #aeb7c5;background:#fff;border-radius:10px;font-weight:800}
+.profAIChoice.selected{background:#e7efff;border-color:#315fb0}
+#profAISuggestion{width:100%;min-height:120px;padding:12px;font-size:16px;resize:vertical}
+.profAIActions{display:flex;justify-content:center;gap:12px;margin-top:22px}.profAIStatus{text-align:center;margin-top:12px;font-weight:800}
+@media(max-width:800px){.profAICards{grid-template-columns:1fr}}
+</style></head><body><main class='desktop'>
+<div class='topbar'><div class='title'>字母型視力表</div><div class='row'>觀看距離：<input value='55' id='distance'> cm　校正倍率：<input value='1.190476' id='calFactor'> <button class='btn' id='rulerCal'>實尺校正 5 cm</button> <button class='btn' id='calShort'>－縮短</button><button class='btn' id='calLong'>＋加長</button> <label><input type='checkbox' id='showLabels' checked style='width:auto'> 顯示視力標示</label> <button class='btn' id='applyDistance'>套用距離</button> <button class='btn' id='shuffleLetters'>重新排列</button> <button class='btn' id='fullScreenBtn'>全畫面 F11</button> <button class='btn' id='backHub'>返回工作台</button></div><div class='row'>測得視力：<select id='recognitionVA'><option>0.05</option><option>0.06</option><option>0.08</option><option>0.10</option><option>0.13</option><option>0.16</option><option>0.20</option><option>0.25</option><option>0.32</option><option>0.40</option><option>0.50</option><option>0.63</option><option>0.79</option><option>1.00</option><option>1.26</option><option>1.58</option></select> <button class='btn' id='recognition3'>三排辨識</button> 閱讀字高：<input id='mainSize' value='0.30'> cm <button class='btn' id='size3'>字高三排閱讀</button> <button class='btn' id='geometryCenter'>完整視力幾何教學中心（同頁）</button> <button class='btn primary' id='openReading'>30秒閱讀＋錄音AI（英／數／中）</button></div><div class='hint'>先用視力表測得視力，再開啟完整視力幾何教學中心，使用 A、B、C 三區、判斷表與互動滑桿。</div></div>
+<section class='chart'><div style='position:absolute;left:0;top:0;width:1px;height:780px;pointer-events:none'></div><div class='calLine'></div><div class='calLabel'>5.00 cm 校正線</div><div class='chartTitle'>SLOAN LETTER VISUAL ACUITY CHART　VIEWING DISTANCE 55 cm</div><div class='acuityLabels'><div class='acuityMark'>0.05</div><div class='acuityMark'>0.06</div><div class='acuityMark'>0.08</div><div class='acuityMark'>0.10</div><div class='acuityMark'>0.13</div><div class='acuityMark'>0.16</div><div class='acuityMark'>0.20</div><div class='acuityMark'>0.25</div><div class='acuityMark'>0.32</div><div class='acuityMark'>0.40</div><div class='acuityMark'>0.50</div><div class='acuityMark'>0.63</div><div class='acuityMark'>0.79</div><div class='acuityMark'>1.00</div><div class='acuityMark'>1.26</div><div class='acuityMark'>1.58</div></div><div class='logLabels'><div class='acuityMark'>+1.3</div><div class='acuityMark'>+1.2</div><div class='acuityMark'>+1.1</div><div class='acuityMark'>+1.0</div><div class='acuityMark'>+0.9</div><div class='acuityMark'>+0.8</div><div class='acuityMark'>+0.7</div><div class='acuityMark'>+0.6</div><div class='acuityMark'>+0.5</div><div class='acuityMark'>+0.4</div><div class='acuityMark'>+0.3</div><div class='acuityMark'>+0.2</div><div class='acuityMark'>+0.1</div><div class='acuityMark'>0.0</div><div class='acuityMark'>-0.1</div><div class='acuityMark'>-0.2</div></div><div class='letters'><div>R D S V O</div><div>S R D C H</div><div>H R O V Z</div><div>O N K R S</div><div>R S Z K C</div><div>N R Z S V</div><div>O D H C S</div><div>O V Z N R</div><div>C N R H K</div><div>V N R Z C</div><div>Z Y K C H</div><div>D R C S Z</div><div>N R Z O D</div><div>V B C E O</div><div>•••••</div><div>•••••</div></div><div class='footnote'>左：十進位視力　右：logMAR　｜　距離 55 cm　｜　請用尺確認上方 5 cm 校正線</div></section><div class='statusline'>已依 55 cm 建立視力表。測得視力後，可開啟完整視力幾何教學中心。</div></main>
+
+<div class='geometryOverlay' id='geometryOverlay'><div class='geoHead'><span>完整視力幾何教學中心｜與視力表同一套操作</span><button class='btn' id='closeGeometry'>返回視力表</button></div><iframe id='geometryFrame' title='完整視力幾何教學中心'></iframe></div>
+<div class='modalShade' id='subjectModal'><div class='modal'><h2>請選擇閱讀模式</h2><div class='sub'>目前閱讀字高：<b id='dialogSize'>0.30 cm</b>（將直接使用）</div><div class='modes'><label><input type='radio' name='readMode' value='英文'> 英文</label><label><input type='radio' name='readMode' value='數字'> 數字</label><label><input type='radio' name='readMode' value='中文' checked> 中文</label></div><div class='versionline'><b>內建閱讀版本：</b><select id='version'></select><span>（中文、英文、數字各有 10 版）</span></div><div class='versionline' style='display:none'><input type='file' id='txtFile' accept='.txt,text/plain'><span id='txtName'></span></div><div id='micBox' class='micbox'>正在檢查麥克風環境……</div><div class='micActions'><button class='smallbtn' id='checkMic'>重新檢查麥克風</button><button class='smallbtn' id='useLocalhost' style='display:none'>改用 localhost 開啟（同一台電腦）</button></div><div class='dialogBtns'><button class='btn primary' id='begin'>開始 30 秒閱讀</button><button class='btn' id='cancel'>取消</button></div></div></div>
+
+<div class='reader' id='toolOverlay' style='background:white;color:#111;z-index:55'><button class='readerStop' id='closeTool' style='background:#eee;color:#111'>Esc／返回視力表</button><div id='toolTitle' style='position:fixed;left:30px;top:22px;font-size:24px;font-weight:900'></div><div id='toolRows' style='height:100vh;display:flex;flex-direction:column;justify-content:center;gap:9vh;padding:10vh 8vw;text-align:center'></div><button class='btn' id='toolRefresh' style='position:fixed;right:160px;top:22px;height:36px'>重新出題 F5</button></div><div class='reader' id='reader'><button class='readerStop' id='earlyStop'>Esc／提前停止</button><div class='readerText' id='readerText'></div><div class='readerHint'>閱讀期間可使用滑鼠滾輪捲動</div><div class='readerTimer'><span id='countdown'>30</span> 秒</div></div>
+<div class='progress' id='progress'><div class='progressCard'><h2>AI 正在判讀 30 秒錄音</h2><div class='spin'></div><div id='progressMsg'>正在載入原本的 faster-whisper/base 引擎……<br>第一次使用可能需要幾分鐘，請不要關閉程式。</div></div></div>
+<div class='review' id='review'><div class='reviewTop'><div class='reviewTitle'><span>AI 語音辨識與閱讀結果確認</span><span style='font-size:16px'>AI 判讀完成，請核對結果。</span></div><div class='subjectLine' id='subjectLine'></div></div><div class='folderbar'><span>閱讀版本：<b id='reviewVersion'></b></span><span class='path' id='savedFolder' style='display:none'></span><button type='button' class='btn' id='closeTop' onclick='goReportNow()'>下一步</button></div><div class='reviewBody'><div class='reviewPane'><div class='oldpos'>AI 最後位置：第 <span id='oldLast'>—</span> <span id='unitLabel'>字</span>　｜　相似度：<span id='similarity'>—</span>　（黃色＝AI 推測最後位置）</div><div class='refText' id='reviewRef'></div></div><div class='reviewPane'><div class='hypTitle'>AI 辨識文字（可人工修改）</div><textarea id='hypBox' class='hypBox'></textarea></div></div><div class='reviewStats'><div class='statText' id='stats'></div><div class='reviewBtns'><button type='button' class='btn' id='closeBottom' onclick='goReportNow()'>下一步</button></div></div></div>
+<div class='feedbackShade' id='feedbackShade'><div class='feedbackCard'><h2>給我們指教</h2><p>您對這次使用感受如何？</p><div class='feedbackChoices'><button class='btn feedbackChoice' data-value='滿意'>滿意</button><button class='btn feedbackChoice' data-value='不滿意'>不滿意</button></div><textarea id='feedbackText' maxlength='500' placeholder='想告訴我們的地方（選填）'></textarea><div class='feedbackActions'><button class='btn' id='skipFeedback'>略過</button><button class='btn primary' id='sendFeedback'>送出</button></div><div id='feedbackStatus'></div></div></div>
+<script>
+const MATERIALS=__MATERIALS__;
+const $=id=>document.getElementById(id);let txtContent='',mediaRecorder=null,audioChunks=[],audioStream=null,timerHandle=null,currentArticle='',currentMode='中文',lastResult=null,currentSubject=null;
+function professionalInfo(){try{return JSON.parse(localStorage.getItem('cloudVisionProfessionalV2')||'{}')}catch(e){return {}}}
+function buildRunIdentity(){let p=professionalInfo();return {subject_id:'PRO-'+Date.now(),name:p.name||'',birth:'',age:'',sex:'',test_no:1}}
+function fillVersions(){let mode=document.querySelector('input[name=readMode]:checked').value;$('version').innerHTML='';if(mode==='TXT'){$('version').disabled=true;return}$('version').disabled=false;for(let i=0;i<10;i++){let o=document.createElement('option');o.value=i;o.textContent='版本 '+String(i+1).padStart(2,'0');$('version').appendChild(o)}}document.querySelectorAll('input[name=readMode]').forEach(r=>r.onchange=fillVersions);fillVersions();
+$('txtFile').onchange=async e=>{let f=e.target.files[0];if(!f)return;txtContent=await f.text();$('txtName').textContent=f.name};
+async function inspectMicrophone(requestPermission=false){let box=$('micBox'),localBtn=$('useLocalhost');localBtn.style.display='none';box.className='micbox';let lines=[];lines.push('目前網址：'+location.origin);lines.push('安全環境：'+(window.isSecureContext?'是':'否'));if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){box.className='micbox bad';lines.push('瀏覽器目前沒有開放錄音 API。');if(location.protocol==='http:'&&!['localhost','127.0.0.1'].includes(location.hostname)){lines.push('原因通常是目前使用區域網路 HTTP 位址（'+location.hostname+'）。同一台電腦請改用 localhost。');localBtn.style.display='inline-block'}box.innerHTML=lines.join('<br>');return false}try{let devs=await navigator.mediaDevices.enumerateDevices(),inputs=devs.filter(d=>d.kind==='audioinput');lines.push('偵測到的麥克風：'+inputs.length+' 個'+(inputs.length?'（'+inputs.map((d,i)=>d.label||('麥克風 '+(i+1))).join('、')+'）':''));if(requestPermission){let st=await navigator.mediaDevices.getUserMedia({audio:true});st.getTracks().forEach(t=>t.stop());devs=await navigator.mediaDevices.enumerateDevices();inputs=devs.filter(d=>d.kind==='audioinput');lines.push('測試錄音權限：成功');if(inputs.length)lines.push('可用裝置：'+inputs.map((d,i)=>d.label||('麥克風 '+(i+1))).join('、'))}box.className='micbox ok';lines.push('狀態：可以開始錄音。');box.innerHTML=lines.join('<br>');return true}catch(e){let name=e&&e.name?e.name:'Error',msg=e&&e.message?e.message:String(e);box.className='micbox bad';lines.push('麥克風檢查失敗：'+name+'｜'+msg);if(name==='NotAllowedError'||name==='PermissionDeniedError')lines.push('請在網址列的網站權限中把「麥克風」改成允許。');else if(name==='NotFoundError'||name==='DevicesNotFoundError')lines.push('Windows 沒有回傳可用的錄音輸入裝置，請到「設定 → 系統 → 音效 → 輸入」確認內建麥克風。');else if(name==='NotReadableError'||name==='TrackStartError')lines.push('麥克風可能正被其他程式占用，請先關閉 Teams、LINE 通話或錄音程式後再試。');else if(name==='SecurityError'||!window.isSecureContext){lines.push('目前頁面不是安全錄音環境。');if(location.protocol==='http:'&&!['localhost','127.0.0.1'].includes(location.hostname))localBtn.style.display='inline-block'}box.innerHTML=lines.join('<br>');return false}}
+function openModal(){
+  // 專業閱讀是在主電腦上使用；若目前以區網 HTTP IP 開啟，瀏覽器會封鎖麥克風。
+  // 自動切回同一台電腦的 localhost（瀏覽器視為可錄音的安全來源），再自動打開閱讀視窗。
+  if(location.protocol==='http:'&&!['localhost','127.0.0.1'].includes(location.hostname)&&!window.isSecureContext){
+    try{sessionStorage.setItem('cloudVisionOpenReadingAfterLocalhost','1')}catch(e){}
+    let u=new URL(location.href);u.hostname='localhost';location.href=u.toString();return;
+  }
+  $('dialogSize').textContent=(Number($('mainSize').value)||.3).toFixed(2)+' cm';
+  $('subjectModal').style.display='flex';
+  inspectMicrophone(false);
+}
+$('openReading').onclick=openModal;$('cancel').onclick=()=>$('subjectModal').style.display='none';$('checkMic').onclick=()=>inspectMicrophone(true);$('useLocalhost').onclick=()=>{try{sessionStorage.setItem('cloudVisionOpenReadingAfterLocalhost','1')}catch(e){}let u=new URL(location.href);u.hostname='localhost';location.href=u.toString()};
+
+const SLOAN=['C','D','H','K','N','O','R','S','V','Z'],DIG=['1','2','3','4','5','6','7','8','9','0'],ZH=['天','人','山','水','中','大','小','上','下','日'];
+function randSample(a,n=6){let b=[...a];for(let i=b.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]]}return b.slice(0,n)}
+function currentFactor(){let f=Number($('calFactor').value);return Number.isFinite(f)&&f>0?f:1}function currentDistance(){let d=Number($('distance').value);return Number.isFinite(d)&&d>0?d:55}
+function saveDeviceCalibration(){let f=currentFactor();localStorage.setItem('cloudVisionCalibrationV10',JSON.stringify({factor:f,measured_cm:5,saved_at:new Date().toISOString(),source:'professional-reading-page'}));$('calFactor').value=f.toFixed(6);updateCalibrationLine();document.querySelector('.statusline').textContent='✓ 本裝置校正已儲存。不同手機／平板／電腦請各自用尺校正一次。'}
+function loadDeviceCalibration(){try{let c=JSON.parse(localStorage.getItem('cloudVisionCalibrationV10')||'null');if(c&&Number(c.factor)>0)$('calFactor').value=Number(c.factor).toFixed(6)}catch(e){}}
+function updateCalibrationLine(){document.querySelector('.calLine').style.width=(5*96/2.54*currentFactor())+'px'}
+function successfulChartHeightCm(va,d){
+  // 直接沿用受試者端已驗證成功的尺寸規則：57 cm 時 VA 0.10 = 0.850 cm、VA 0.50 = 0.170 cm。
+  return (0.085/Number(va))*(Number(d)/57);
+}
+function refreshMainChart(){
+  let d=currentDistance();
+  document.querySelector('.chartTitle').textContent='SLOAN LETTER VISUAL ACUITY CHART　VIEWING DISTANCE '+d+' cm';
+  document.querySelector('.footnote').textContent='左：十進位視力　右：logMAR　｜　距離 '+d+' cm　｜　請用尺確認上方 5 cm 校正線';
+  document.querySelector('.statusline').textContent='已依 '+d+' cm 建立視力表。視標尺寸沿用受試者端已驗證成功的同一套距離換算。';
+  const vas=[0.05,0.06,0.08,0.10,0.13,0.16,0.20,0.25,0.32,0.40,0.50,0.63,0.79,1.00,1.26,1.58];
+  const rows=document.querySelectorAll('.letters div');
+  rows.forEach((row,i)=>{
+    if(i>=vas.length)return;
+    const cm=successfulChartHeightCm(vas[i],d);
+    // 與成功版相同，以實際字形高度約 0.72em 換算，並套用本頁 5 cm 實尺校正倍率。
+    const px=(cm*96/2.54*currentFactor())/.72;
+    row.style.fontSize=Math.max(3,px).toFixed(2)+'px';
+  });
+  document.querySelector('.letters').style.transform='translateX(-50%)';
+  document.querySelector('.letters').style.transformOrigin='top center';
+
+  // 左右視力數值不再使用固定 line-height；直接讀取每一排字的實際中心位置。
+  // 因此不論字體大小如何縮小，每個 0.05 / 0.06 / ... 都會跟同一排字精確對齊。
+  const letterBox=document.querySelector('.letters');
+  const leftMarks=document.querySelectorAll('.acuityLabels .acuityMark');
+  const rightMarks=document.querySelectorAll('.logLabels .acuityMark');
+  const letterRows=document.querySelectorAll('.letters > div');
+  letterRows.forEach((row,i)=>{
+    const centerY=row.offsetTop + row.offsetHeight/2;
+    if(leftMarks[i]) leftMarks[i].style.top=centerY+'px';
+    if(rightMarks[i]) rightMarks[i].style.top=centerY+'px';
+  });
+
+  updateCalibrationLine();
+}
+$('applyDistance').onclick=refreshMainChart;$('distance').addEventListener('keydown',e=>{if(e.key==='Enter')refreshMainChart()});$('calFactor').addEventListener('keydown',e=>{if(e.key==='Enter')refreshMainChart()});
+$('rulerCal').onclick=()=>{let v=prompt('請用尺量畫面上的 5.00 cm 校正線，輸入實際量到的公分數：','5.00');if(v===null)return;let m=Number(v);if(!Number.isFinite(m)||m<1||m>10){alert('請輸入 1～10 cm 的數字');return}$('calFactor').value=(currentFactor()*5/m).toFixed(6);saveDeviceCalibration();refreshMainChart()};
+$('calShort').onclick=()=>{$('calFactor').value=(currentFactor()*0.99).toFixed(6);saveDeviceCalibration();refreshMainChart()};
+$('calLong').onclick=()=>{$('calFactor').value=(currentFactor()*1.01).toFixed(6);saveDeviceCalibration();refreshMainChart()};
+$('calFactor').addEventListener('change',()=>{saveDeviceCalibration();refreshMainChart()});
+$('showLabels').onchange=()=>{document.querySelector('.acuityLabels').style.display=$('showLabels').checked?'block':'none';document.querySelector('.logLabels').style.display=$('showLabels').checked?'block':'none'};
+$('shuffleLetters').onclick=()=>document.querySelectorAll('.letters div').forEach((r,i)=>{if(i<14)r.textContent=randSample(SLOAN,5).join(' ')});
+$('fullScreenBtn').onclick=()=>{};$('backHub').onclick=()=>location.href='/cloud/professional/hub';
+function letterHeightCm(va,d){let deg=(5/va)/60;return 2*d*Math.tan(deg*Math.PI/180/2)}let toolMode='';
+function openTool(mode){toolMode=mode;$('toolOverlay').style.display='block';renderTool();}
+function renderTool(){let sizeCm,title;if(toolMode==='recognition'){let va=Number($('recognitionVA').value)||.05;sizeCm=letterHeightCm(va,currentDistance());title='三排辨識測試｜視力 '+va+'｜距離 '+currentDistance()+' cm'}else{sizeCm=Number($('mainSize').value)||.30;title='字高三排閱讀驗證｜字高 '+sizeCm.toFixed(2)+' cm｜觀看距離 '+currentDistance()+' cm'}$('toolTitle').textContent=title;let px=Math.max(2,sizeCm*96/2.54*currentFactor());let sets=[['英文字',randSample(SLOAN)],['數字',randSample(DIG)],['中文字',randSample(ZH)]];$('toolRows').innerHTML=sets.map(([name,a])=>`<div style='display:grid;grid-template-columns:130px 1fr;align-items:center'><div style='font-size:22px;font-weight:900;text-align:right;padding-right:25px'>${name}</div><div style='font-size:${px}px;font-weight:900;white-space:nowrap'>${a.join(name==='中文字'?'　':'  ')}</div></div>`).join('')}
+function closeTool(){$('toolOverlay').style.display='none';}$('recognition3').onclick=()=>openTool('recognition');$('size3').onclick=()=>openTool('size');$('toolRefresh').onclick=renderTool;$('closeTool').onclick=closeTool;$('geometryCenter').onclick=()=>{let ov=$('geometryOverlay'),fr=$('geometryFrame');if(!fr.src)fr.src='/cloud/tools/geometry';ov.style.display='block';document.body.style.overflow='hidden'};
+$('closeGeometry').onclick=()=>{$('geometryOverlay').style.display='none';document.body.style.overflow=''};
+document.addEventListener('keydown',e=>{if(e.key==='F5'&&$('toolOverlay').style.display==='block'){e.preventDefault();renderTool()}if(e.key==='F11'){e.preventDefault();$('fullScreenBtn').click()}if(e.key==='Escape'&&$('geometryOverlay').style.display==='block'){$('closeGeometry').click();return}if(e.key==='Escape'&&$('toolOverlay').style.display==='block')closeTool()});loadDeviceCalibration();refreshMainChart();try{if(sessionStorage.getItem('cloudVisionOpenReadingAfterLocalhost')==='1'){sessionStorage.removeItem('cloudVisionOpenReadingAfterLocalhost');setTimeout(openModal,120)}}catch(e){}
+
+
+function wrapReadingForDisplay(rawText,mode,sizeCm){
+  let cleaned=String(rawText||'').replace(/\r/g,' ').replace(/\n/g,' ').trim().replace(/\s+/g,' ');
+  let width=Math.max(8,Math.min(80,Math.floor(12.0/Math.max(Number(sizeCm)||0.05,0.05))));
+  if(mode==='中文'||mode==='TXT'){
+    let lines=[],current='';
+    for(let ch of cleaned){
+      current+=ch;
+      if(current.length>=width && '，。；！？、：,.!?;:'.includes(ch)){lines.push(current);current=''}
+      else if(current.length>=width+4){lines.push(current);current=''}
+    }
+    if(current)lines.push(current);
+    return lines.join('\n');
+  }
+  let words=cleaned.split(/\s+/).filter(Boolean),lines=[],current='';
+  for(let word of words){
+    let candidate=current?current+' '+word:word;
+    if(candidate.length>width && current){lines.push(current);current=word}
+    else current=candidate;
+  }
+  if(current)lines.push(current);
+  return lines.join('\n');
+}
+
+function clearPreviousReadingResult(){
+  lastResult=null;
+  try{$('review').style.display='none'}catch(e){}
+  try{$('progress').style.display='none'}catch(e){}
+  try{$('reviewRef').textContent=''}catch(e){}
+  try{$('hypBox').value=''}catch(e){}
+  try{$('oldLast').textContent='0'}catch(e){}
+  try{$('similarity').textContent='—'}catch(e){}
+  try{$('stats').textContent=''}catch(e){}
+  try{$('savedFolder').textContent=''}catch(e){}
+}
+async function startReader(){clearPreviousReadingResult();currentMode=document.querySelector('input[name=readMode]:checked').value;let modeForAI=currentMode==='TXT'?'中文':currentMode;currentArticle=currentMode==='TXT'?txtContent:MATERIALS[currentMode][Number($('version').value||0)];if(!currentArticle.trim()){alert('請先選擇 TXT 檔案');return}if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){await inspectMicrophone(false);return}currentSubject=buildRunIdentity();try{audioStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}})}catch(e){await inspectMicrophone(true);return}if(!window.MediaRecorder){audioStream.getTracks().forEach(t=>t.stop());$('micBox').className='micbox bad';$('micBox').innerHTML='瀏覽器可取得麥克風，但不支援 MediaRecorder 錄音格式。請改用最新版 Chrome 或 Edge。';return}audioChunks=[];let opts={};if(MediaRecorder.isTypeSupported('audio/webm;codecs=opus'))opts.mimeType='audio/webm;codecs=opus';else if(MediaRecorder.isTypeSupported('audio/webm'))opts.mimeType='audio/webm';try{mediaRecorder=new MediaRecorder(audioStream,opts)}catch(e){audioStream.getTracks().forEach(t=>t.stop());$('micBox').className='micbox bad';$('micBox').innerHTML='錄音器啟動失敗：'+(e.message||e);return}mediaRecorder.onerror=e=>{try{audioStream&&audioStream.getTracks().forEach(t=>t.stop())}catch(_e){}alert('錄音途中發生錯誤：'+((e.error&&e.error.message)||e.message||e))};mediaRecorder.ondataavailable=e=>{if(e.data&&e.data.size)audioChunks.push(e.data)};mediaRecorder.onstop=()=>{if(!audioChunks.length){$('progress').style.display='none';$('subjectModal').style.display='flex';$('micBox').className='micbox bad';$('micBox').innerHTML='麥克風已開啟，但沒有收到錄音資料。請按「重新檢查麥克風」再試一次。';return}analyze(modeForAI)};mediaRecorder.start(250);$('subjectModal').style.display='none';$('readerText').textContent=wrapReadingForDisplay(currentArticle,currentMode,Number($('mainSize').value)||.3);let cm=Number($('mainSize').value)||.3;let factor=currentFactor();$('readerText').style.fontSize=(cm*96/2.54*factor)+'px';$('readerText').style.width=(27.6*96/2.54*factor)+'px';$('readerText').style.maxWidth='calc(100vw - 36px)';$('readerText').style.marginLeft='auto';$('readerText').style.marginRight='auto';$('readerText').style.textAlign='left';$('reader').style.display='block';let left=30;$('countdown').textContent=left;timerHandle=setInterval(()=>{left--;$('countdown').textContent=left;if(left<=0)stopReader()},1000)}
+function stopReader(){if(timerHandle){clearInterval(timerHandle);timerHandle=null}if(mediaRecorder&&mediaRecorder.state!=='inactive')mediaRecorder.stop();if(audioStream)audioStream.getTracks().forEach(t=>t.stop());$('reader').style.display='none';$('progress').style.display='flex'}$('earlyStop').onclick=stopReader;document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('reader').style.display==='block')stopReader()});$('begin').onclick=startReader;
+async function analyze(modeForAI){let blob=new Blob(audioChunks,{type:(mediaRecorder&&mediaRecorder.mimeType)||'audio/webm'}),fd=new FormData();fd.append('audio',blob,'reading.webm');fd.append('mode',modeForAI);fd.append('version',currentMode==='TXT'?'TXT':('版本 '+String(Number($('version').value)+1).padStart(2,'0')));fd.append('article',currentArticle);fd.append('size_cm',$('mainSize').value);fd.append('subject_id',currentSubject.subject_id);fd.append('subject_name',currentSubject.name);fd.append('birth_date',currentSubject.birth);fd.append('age',currentSubject.age);fd.append('sex',currentSubject.sex);fd.append('test_no',currentSubject.test_no);let pro={};try{pro=JSON.parse(localStorage.getItem('cloudVisionProfessionalV2')||'{}')}catch(e){}fd.append('professional_name',pro.name||'');fd.append('professional_role',pro.role||'');fd.append('professional_purpose',pro.purpose||'');fd.append('session_id',sessionStorage.getItem('cloudVisionCurrentSession')||pro.session_id||'');try{let r=await fetch('/cloud/professional/reading/analyze',{method:'POST',body:fd}),d=await r.json();if(!r.ok||!d.ok)throw Error(d.error||'分析失敗');lastResult=d;showReview(d)}catch(e){$('progress').style.display='none';alert('AI 分析沒有完成：'+e.message)}}
+function units(text,mode){if(mode==='英文')return (text.toLowerCase().match(/[a-z]+(?:'[a-z]+)?/g)||[]);if(mode==='數字')return (text.match(/\d+/g)||[]);return (text.match(/[\u4e00-\u9fffA-Za-z0-9]/g)||[])}function calcFromEdited(){if(!lastResult)return;let mode=lastResult.mode,ref=units(currentArticle,mode),hyp=units($('hypBox').value,mode);let pos=Math.min(ref.length,Math.max(lastResult.last_position,hyp.length));let same=0;for(let i=0;i<Math.min(pos,hyp.length);i++)if(ref[i]===hyp[i])same++;let wrong=Math.max(0,Math.min(pos,hyp.length)-same),omit=Math.max(0,pos-hyp.length),extra=Math.max(0,hyp.length-pos),spoken=same+wrong+extra,acc=spoken?same/spoken*100:0,comp=ref.length?pos/ref.length*100:0;lastResult.correct=same;lastResult.wrong=wrong;lastResult.omitted=omit;lastResult.extra=extra;lastResult.accuracy=acc;lastResult.completion=comp;lastResult.per_minute=same*2;renderYellowReadingPosition(currentArticle,currentMode,lastResult.last_position);renderStats()}
+function renderStats(){let d=lastResult,u=d.unit;$('stats').innerHTML=`AI 引擎：${d.engine}　｜　全文 ${d.ref_units||units(currentArticle,d.mode).length} ${u}　｜　最後閱讀位置：第 ${d.last_position} ${u}<br>正確 ${d.correct}　念錯 ${d.wrong}　漏讀 ${d.omitted}　多讀 ${d.extra}　｜　朗讀正確率 ${d.accuracy.toFixed(1)}%　文章完成率 ${d.completion.toFixed(1)}%　｜　閱讀速度：每分鐘 ${d.per_minute.toFixed(1)} ${u}`}
+function escHtml(s){return String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}
+function renderYellowReadingPosition(article,mode,lastPos){
+  article=String(article||'');lastPos=Math.max(0,Number(lastPos)||0);
+  if(lastPos<=0){$('reviewRef').textContent=article;return}
+  let start=-1,end=-1;
+  if(mode==='中文'||mode==='TXT'){
+    let count=0;
+    for(let i=0;i<article.length;i++){
+      if(/[\u4e00-\u9fffA-Za-z0-9]/.test(article[i])){
+        count++;
+        if(count===lastPos){start=i;end=i+1;break}
+      }
+    }
+  }else{
+    const re=mode==='英文'?/[A-Za-z]+(?:'[A-Za-z]+)?/g:/\d+/g;
+    let m,count=0;
+    while((m=re.exec(article))!==null){
+      count++;
+      if(count===lastPos){start=m.index;end=m.index+m[0].length;break}
+    }
+  }
+  if(start<0||end<0){$('reviewRef').textContent=article;return}
+  $('reviewRef').innerHTML='<span class="readPrefix">'+escHtml(article.slice(0,start))+'</span><span class="readLast">'+escHtml(article.slice(start,end))+'</span>'+escHtml(article.slice(end));
+}
+function showReview(d){$('progress').style.display='none';$('review').style.display='block';let pro=professionalInfo();$('subjectLine').textContent=`專業使用者：${pro.name||'—'}　 身分：${pro.role||'—'}　 閱讀：${currentMode}／${currentMode==='TXT'?'TXT':$('version').options[$('version').selectedIndex].text}　 字高：${Number($('mainSize').value).toFixed(2)} cm`;$('reviewVersion').textContent=currentMode==='TXT'?'TXT':$('version').options[$('version').selectedIndex].text;$('savedFolder').textContent=d.saved_folder||'';$('oldLast').textContent=d.last_position;$('unitLabel').textContent=d.unit;$('similarity').textContent=(d.similarity||100).toFixed(3);renderYellowReadingPosition(currentArticle,currentMode,d.last_position);$('hypBox').value=d.transcript||'';renderStats()}$('hypBox').oninput=calcFromEdited;
+let feedbackValue='';
+async function saveFinal(silent=true){if(!lastResult)return true;let payload={saved_folder:lastResult.saved_folder,article:currentArticle,corrected:$('hypBox').value,subject:currentSubject,mode:lastResult.mode,reading_mode:currentMode,version:$('reviewVersion').textContent,size_cm:Number($('mainSize').value),result:lastResult};try{let r=await fetch('/cloud/professional/reading/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}),d=await r.json();if(!r.ok||!d.ok)throw Error(d.error||'儲存失敗');return true}catch(e){if(!silent)alert(e.message);return false}}
+async function showReadingAnalysis(){
+  const d=lastResult||{};
+  const va=parseFloat($('mainVA').value||'0');
+  $('analysisTime').textContent='本次測驗：'+new Date().toLocaleString();
+  $('analysisVA').textContent=va>0?va.toFixed(2):'—';
+  $('analysisDist').textContent='觀看距離 '+currentDistance()+' cm';
+  $('analysisAcc').textContent=Number(d.accuracy||0).toFixed(1)+'%';
+  $('analysisLast').textContent='最後位置：第 '+Number(d.last_position||0)+' '+(d.unit||'字')+'；正確 '+Number(d.correct||0);
+  $('analysisSpeed').textContent=Number(d.per_minute||0).toFixed(1);
+  $('analysisCompletion').textContent=(d.unit||'字')+'/分鐘；文章完成率 '+Number(d.completion||0).toFixed(1)+'%';
+  if(d.silence||(!d.transcript&&Number(d.correct||0)===0)){
+    $('analysisAdviceText').textContent='本次沒有偵測到有效朗讀，因此本次閱讀位置、正確率、完成率與閱讀速度均記為 0；沒有沿用上一回資料。';
+  }else{
+    let t='本次朗讀正確率 '+Number(d.accuracy||0).toFixed(1)+'%，文章完成率 '+Number(d.completion||0).toFixed(1)+'%，閱讀速度約每分鐘 '+Number(d.per_minute||0).toFixed(1)+' '+(d.unit||'字')+'。';
+    if(Number(d.accuracy||0)<70)t+=' 建議可再測一次，並比較不同字高或觀看距離。';
+    else t+=' 本次結果可作為後續不同字高與觀看距離的比較資料。';
+    $('analysisAdviceText').textContent=t;
+  }
+  $('analysisOverlay').style.display='block';
+}
+function closeReview(){
+  const d=lastResult||{};
+  const report={
+    binocular_va:Number($('mainVA').value||0),
+    viewing_distance_cm:Number(currentDistance()||0),
+    reading_font_height_cm:Number($('mainSize').value||0),
+    reading_mode:currentMode||'',
+    reading_version:$('reviewVersion').textContent||'',
+    unit:d.unit||'字',
+    per_minute:Number(d.per_minute||0),
+    accuracy:Number(d.accuracy||0),
+    completion:Number(d.completion||0),
+    last_position:Number(d.last_position||0),
+    correct:Number(d.correct||0),
+    wrong:Number(d.wrong||0),
+    omitted:Number(d.omitted||0),
+    extra:Number(d.extra||0),
+    silence:!!d.silence,
+    saved_folder:d.saved_folder||'',
+    recorded_at:new Date().toISOString()
+  };
+  try{
+    sessionStorage.setItem('cloudVisionFinalProfessionalReport',JSON.stringify(report));
+  }catch(e){}
+  try{saveFinal(true)}catch(e){}
+  window.location.assign('/cloud/professional/reading/report');
+}
+$('analysisClose').onclick=()=>{$('analysisOverlay').style.display='none'};$('analysisBack').onclick=()=>{$('analysisOverlay').style.display='none'};
+document.querySelectorAll('.feedbackChoice').forEach(btn=>btn.onclick=()=>{feedbackValue=btn.dataset.value;document.querySelectorAll('.feedbackChoice').forEach(b=>b.classList.toggle('selected',b===btn))});
+$('skipFeedback').onclick=()=>{$('feedbackShade').style.display='none'};
+$('sendFeedback').onclick=async()=>{if(!feedbackValue){alert('請先選擇滿意或不滿意。');return}let payload={saved_folder:lastResult?.saved_folder||'',satisfaction:feedbackValue,comment:$('feedbackText').value||''};$('feedbackStatus').textContent='正在送出…';try{let r=await fetch('/cloud/professional/reading/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}),d=await r.json();if(!r.ok||!d.ok)throw Error(d.error||'送出失敗');$('feedbackStatus').textContent='謝謝您的指教。';setTimeout(()=>{$('feedbackShade').style.display='none'},650)}catch(e){$('feedbackStatus').textContent='送出失敗，請再試一次。'}};
+
+let profAIQuestion={satisfaction:'',needs_improvement:''};
+function profAIData(){
+  const d=lastResult||{};
+  return {
+    measured_va:Number($('mainVA').value||0),
+    viewing_distance_cm:Number(currentDistance()||0),
+    reading_font_height_cm:Number($('mainSize').value||0),
+    reading_mode:currentMode||'',
+    reading_version:$('reviewVersion').textContent||'',
+    last_position:Number(d.last_position||0),
+    unit:d.unit||'字',
+    accuracy:Number(d.accuracy||0),
+    completion:Number(d.completion||0),
+    per_minute:Number(d.per_minute||0),
+    correct:Number(d.correct||0),
+    wrong:Number(d.wrong||0),
+    omitted:Number(d.omitted||0),
+    extra:Number(d.extra||0),
+    silence:!!d.silence,
+    transcript:d.transcript||'',
+    saved_folder:d.saved_folder||''
+  };
+}
+function showProfessionalAIReport(){
+  const d=profAIData();
+  $('profAIReportTime').textContent='測驗時間：'+new Date().toLocaleString();
+  $('profAIVA').textContent=d.measured_va>0?d.measured_va.toFixed(2):'—';
+  $('profAIVAMeta').textContent='觀看距離 '+d.viewing_distance_cm.toFixed(0)+' cm';
+  $('profAIFont').textContent=d.reading_font_height_cm>0?d.reading_font_height_cm.toFixed(2)+' cm':'—';
+  $('profAIFontMeta').textContent='閱讀模式：'+(d.reading_mode||'—');
+  $('profAISpeed').textContent=(d.silence?0:d.per_minute).toFixed(1);
+  $('profAISpeedMeta').textContent=(d.unit||'字')+'/分鐘｜正確率 '+d.accuracy.toFixed(1)+'%｜完成率 '+d.completion.toFixed(1)+'%｜最後位置 '+d.last_position;
+  let t='';
+  if(d.silence){
+    t='本次未偵測到有效朗讀，因此閱讀速度、正確率、完成率與最後閱讀位置皆以 0 計算。';
+  }else{
+    t='本次測得視力 '+(d.measured_va>0?d.measured_va.toFixed(2):'—')+'，觀看距離 '+d.viewing_distance_cm.toFixed(0)+' cm；閱讀字高 '+d.reading_font_height_cm.toFixed(2)+' cm；30 秒閱讀速度 '+d.per_minute.toFixed(1)+' '+(d.unit||'字')+'/分鐘，朗讀正確率 '+d.accuracy.toFixed(1)+'%，文章完成率 '+d.completion.toFixed(1)+'%。';
+    if(d.accuracy<70)t+=' 建議可再測一次，或比較其他閱讀字高與觀看距離。';
+  }
+  $('profAIAnalysisText').textContent=t;
+  profAIQuestion={satisfaction:'',needs_improvement:''};
+  $('profAISuggestion').value='';
+  $('profAIStatus').textContent='';
+  document.querySelectorAll('.profAIChoice').forEach(b=>b.classList.remove('selected'));
+  $('profAIReport').style.display='block';
+}
+document.querySelectorAll('.profAIChoice').forEach(btn=>{
+  btn.onclick=()=>{
+    const g=btn.parentElement.dataset.group;
+    profAIQuestion[g]=btn.dataset.value;
+    btn.parentElement.querySelectorAll('.profAIChoice').forEach(b=>b.classList.toggle('selected',b===btn));
+  };
+});
+$('profAISubmit').onclick=async()=>{
+  if(!profAIQuestion.satisfaction){alert('請先選擇整體使用感受。');return}
+  if(!profAIQuestion.needs_improvement){alert('請先選擇是否需要改善。');return}
+  const payload={
+    report:profAIData(),
+    survey:{
+      satisfaction:profAIQuestion.satisfaction,
+      needs_improvement:profAIQuestion.needs_improvement,
+      suggestion:$('profAISuggestion').value||''
+    },
+    professional:professionalInfo()
+  };
+  $('profAIStatus').textContent='正在送出…';
+  try{
+    const r=await fetch('/cloud/professional/reading/report-submit',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload)
+    });
+    const d=await r.json();
+    if(!r.ok||!d.ok)throw Error(d.error||'送出失敗');
+    $('profAIStatus').textContent='已送出，資料已進入後台。';
+  }catch(e){
+    $('profAIStatus').textContent='送出失敗：'+e.message;
+  }
+};
+$('profAIBack').onclick=()=>{location.href='/cloud/professional/dashboard'};
+
+try{
+  
+}catch(e){}
+
+try{
+  
+}catch(e){}
+
+function goReportNow(){
+  try{
+    const d=lastResult||{};
+
+    // 只使用目前流程已存在的 JS 變數與 AI 結果，不讀任何不存在的 input.value
+    let binocularVA=0;
+    try{
+      if(typeof currentVA!=='undefined') binocularVA=Number(currentVA||0);
+      else if(typeof selectedVA!=='undefined') binocularVA=Number(selectedVA||0);
+      else if(typeof mainVA!=='undefined') binocularVA=Number(mainVA||0);
+    }catch(e){binocularVA=0;}
+
+    let distance=0;
+    try{
+      distance=Number(currentDistance ? currentDistance() : 0) || 0;
+    }catch(e){distance=0;}
+
+    let fontHeight=0;
+    try{
+      if(typeof currentFontHeight!=='undefined') fontHeight=Number(currentFontHeight||0);
+      else if(typeof readingSize!=='undefined') fontHeight=Number(readingSize||0);
+    }catch(e){fontHeight=0;}
+
+    // 最後保險：若上面變數不存在，用畫面文字解析，但不碰 .value
+    if(!binocularVA){
+      try{
+        const txt=document.body.innerText||'';
+        const m=txt.match(/測得視力[:：]?\s*(\d+(?:\.\d+)?)/);
+        if(m)binocularVA=Number(m[1]||0);
+      }catch(e){}
+    }
+    if(!fontHeight){
+      try{
+        const txt=document.body.innerText||'';
+        const m=txt.match(/字高[:：]?\s*(\d+(?:\.\d+)?)\s*cm/i);
+        if(m)fontHeight=Number(m[1]||0);
+      }catch(e){}
+    }
+
+    const report={
+      binocular_va:binocularVA,
+      viewing_distance_cm:distance,
+      reading_font_height_cm:fontHeight,
+      reading_mode:(typeof currentMode!=='undefined' && currentMode)?currentMode:'',
+      reading_version:(typeof currentVersion!=='undefined' && currentVersion)?currentVersion:'',
+      unit:d.unit||'字',
+      per_minute:Number(d.per_minute||0),
+      accuracy:Number(d.accuracy||0),
+      completion:Number(d.completion||0),
+      last_position:Number(d.last_position||0),
+      correct:Number(d.correct||0),
+      wrong:Number(d.wrong||0),
+      omitted:Number(d.omitted||0),
+      extra:Number(d.extra||0),
+      silence:!!d.silence,
+      saved_folder:d.saved_folder||'',
+      recorded_at:new Date().toISOString()
+    };
+
+    sessionStorage.setItem('cloudVisionFinalProfessionalReport',JSON.stringify(report));
+    window.location.href='/cloud/professional/reading/report';
+  }catch(err){
+    alert('下一步發生錯誤：'+err.message);
+  }
+}
+</script>
+<div id='analysisOverlay' class='analysisOverlay'>
+  <div class='analysisWrap'>
+    <div class='analysisTop'>
+      <div><div class='analysisBrand'>Cloud Vision</div><h1>個人測驗資料分析</h1><div id='analysisTime'></div></div>
+      <button class='btn' id='analysisClose'>關閉</button>
+    </div>
+    <div class='analysisGrid'>
+      <div class='analysisCard'><h3>視力表測驗</h3><div class='analysisLabel'>目前視力</div><div id='analysisVA' class='analysisBig'>—</div><div id='analysisDist' class='analysisSmall'>—</div></div>
+      <div class='analysisCard'><h3>閱讀辨識</h3><div class='analysisLabel'>朗讀正確率</div><div id='analysisAcc' class='analysisBig'>—</div><div id='analysisLast' class='analysisSmall'>—</div></div>
+      <div class='analysisCard'><h3>30 秒閱讀</h3><div class='analysisLabel'>閱讀速度</div><div id='analysisSpeed' class='analysisBig'>—</div><div id='analysisCompletion' class='analysisSmall'>—</div></div>
+    </div>
+    <div class='analysisAdvice'><h2>資料分析</h2><div id='analysisAdviceText'></div></div>
+    <div class='analysisBottom'><button class='btn' id='analysisBack'>回到視力表</button></div>
+  </div>
+</div>
+
+<div id='profAIReport' class='profAIReport'>
+  <div class='profAIWrap'>
+    <div class='profAIHead'>
+      <div class='profAIBrand'>Cloud Vision</div>
+      <h1>AI 測驗報告</h1>
+      <div id='profAIReportTime'></div>
+    </div>
+
+    <div class='profAICards'>
+      <div class='profAICard'>
+        <h3>視力</h3>
+        <div id='profAIVA' class='profAIBig'>—</div>
+        <div id='profAIVAMeta' class='profAIMeta'>—</div>
+      </div>
+      <div class='profAICard'>
+        <h3>閱讀字高</h3>
+        <div id='profAIFont' class='profAIBig'>—</div>
+        <div id='profAIFontMeta' class='profAIMeta'>—</div>
+      </div>
+      <div class='profAICard'>
+        <h3>30 秒 AI 閱讀</h3>
+        <div id='profAISpeed' class='profAIBig'>—</div>
+        <div id='profAISpeedMeta' class='profAIMeta'>—</div>
+      </div>
+    </div>
+
+    <div class='profAIAnalysis'>
+      <h2>AI 分析</h2>
+      <div id='profAIAnalysisText'></div>
+    </div>
+
+    <div class='profAISurvey'>
+      <h2>使用問卷</h2>
+      <div class='profAIQ'>
+        <div class='profAIQTitle'>1. 您對本平台的整體使用感受？</div>
+        <div class='profAIChoices' data-group='satisfaction'>
+          <button class='profAIChoice' data-value='滿意'>滿意</button>
+          <button class='profAIChoice' data-value='普通'>普通</button>
+          <button class='profAIChoice' data-value='不滿意'>不滿意</button>
+        </div>
+      </div>
+      <div class='profAIQ'>
+        <div class='profAIQTitle'>2. 您覺得本平台需要改善嗎？</div>
+        <div class='profAIChoices' data-group='needs_improvement'>
+          <button class='profAIChoice' data-value='不需要改善'>不需要改善</button>
+          <button class='profAIChoice' data-value='需要改善'>需要改善</button>
+        </div>
+      </div>
+      <div class='profAIQ'>
+        <div class='profAIQTitle'>3. 改善建議（選填）</div>
+        <textarea id='profAISuggestion' maxlength='500' placeholder='請寫下您的建議'></textarea>
+      </div>
+      <div class='profAIActions'>
+        <button class='btn primary' id='profAISubmit'>送出問卷</button>
+        <button class='btn' id='profAIBack'>返回工作台</button>
+      </div>
+      <div id='profAIStatus' class='profAIStatus'></div>
+    </div>
+  </div>
+</div>
+</body></html>"""
+        return html_doc.replace('__MATERIALS__', materials_json)
+
+    def _analyze_browser_reading(self, audio_bytes: bytes, filename: str, mode: str, article_text: str, meta: dict) -> dict:
+        """保存瀏覽器音檔，沿用 faster-whisper/base 與原閱讀程式的計分邏輯。"""
+        from difflib import SequenceMatcher
+        def normalize(text: str) -> str:
+            text = str(text or '').strip().lower()
+            if mode == '數字': return ' '.join(re.findall(r'\d+', text))
+            if mode == '英文': return ' '.join(re.findall(r"[a-z]+(?:'[a-z]+)?", text))
+            return ''.join(re.findall(r'[\u4e00-\u9fffA-Za-z0-9]', text))
+        ref_norm=normalize(article_text)
+        ref_units=ref_norm.split() if mode in ('英文','數字') else list(ref_norm)
+        root=(Path(r'C:\視覺功能研究平台\AI閱讀結果') if os.name=='nt' else Path.home()/'Documents'/'視覺功能研究平台'/'AI閱讀結果')
+        root.mkdir(parents=True,exist_ok=True)
+        stamp=datetime.now().strftime('%Y%m%d_%H%M%S_%f')
+        safe_ext=Path(filename or 'reading.webm').suffix or '.webm'
+        subject_id=str(meta.get('subject_id') or '未編號').strip(); subject_name=str(meta.get('subject_name') or '').strip(); safe_subject=(subject_id+'_'+subject_name).strip('_').replace('/','_').replace('\\','_'); subject_dir=root/safe_subject; subject_dir.mkdir(parents=True,exist_ok=True); folder=subject_dir/(stamp+'_'+str(meta.get('version') or '').replace(' ','_'));folder.mkdir(parents=True,exist_ok=True)
+        audio_path=folder/('record'+safe_ext);audio_path.write_bytes(audio_bytes)
+        (folder/'閱讀原文.txt').write_text(article_text,encoding='utf-8-sig')
+        # 沿用以前成功的閱讀程式：先把使用者層級 site-packages 補進 sys.path，
+        # 避免 faster-whisper 明明已安裝，瀏覽器版卻因啟動環境不同而載入不到。
+        import site
+        candidates=[]
+        try:
+            user_site=site.getusersitepackages()
+            if user_site:
+                candidates.append(Path(user_site))
+        except Exception:
+            pass
+        candidates.append(
+            Path.home()/'AppData'/'Roaming'/'Python'/
+            f'Python{sys.version_info.major}{sys.version_info.minor}'/'site-packages'
+        )
+        for folder_path in candidates:
+            folder_text=str(folder_path)
+            if folder_path.exists() and folder_text not in sys.path:
+                sys.path.insert(0,folder_text)
+        try:
+            from faster_whisper import WhisperModel
+            language='en' if mode=='英文' else 'zh'
+            model=WhisperModel('base',device='cpu',compute_type='int8')
+            segments,_=model.transcribe(str(audio_path),language=language,beam_size=5,vad_filter=True,condition_on_previous_text=False,initial_prompt='以下是閱讀材料朗讀，請盡量逐字轉錄：'+article_text[:180])
+            kept=[]
+            for s in segments:
+                try:
+                    no_speech=float(getattr(s,'no_speech_prob',0.0) or 0.0)
+                except Exception:
+                    no_speech=0.0
+                if no_speech < 0.60 and str(getattr(s,'text','') or '').strip():
+                    kept.append(str(s.text))
+            transcript=''.join(kept).strip()
+        except Exception as exc:
+            raise RuntimeError('faster-whisper/base 無法完成分析：'+str(exc))
+        hyp_norm=normalize(transcript);hyp_units=hyp_norm.split() if mode in ('英文','數字') else list(hyp_norm)
+        if not hyp_units:
+            result={'ok':True,'mode':mode,'unit':'字' if mode=='中文' else ('word' if mode=='英文' else '組'),'ref_units':len(ref_units),'similarity':0.0,'last_position':0,'correct':0,'wrong':0,'omitted':0,'extra':0,'accuracy':0.0,'completion':0.0,'per_minute':0.0,'transcript':'','engine':'faster-whisper/base','saved_folder':str(folder),'silence':True}
+            (folder/'AI辨識.txt').write_text('',encoding='utf-8-sig')
+            (folder/'結果.json').write_text(json.dumps({'meta':meta,'result':result},ensure_ascii=False,indent=2),encoding='utf-8')
+            return result
+        hyp_len=len(hyp_units);lower=max(1,int(hyp_len*.45));upper=min(len(ref_units),max(hyp_len+40,int(hyp_len*1.8)))
+        best_pos=0;best_score=-1;best_similarity=0.0
+        for pos in range(lower,upper+1):
+            ratio=SequenceMatcher(None,ref_units[:pos],hyp_units,autojunk=False).ratio();bal=min(pos,hyp_len)/max(pos,hyp_len);score=ratio*(.82+.18*bal)
+            if score>best_score:best_score=score;best_pos=pos;best_similarity=ratio
+        attempted=ref_units[:best_pos];matcher=SequenceMatcher(None,attempted,hyp_units,autojunk=False)
+        correct=wrong=omitted=extra=0
+        for tag,i1,i2,j1,j2 in matcher.get_opcodes():
+            rl=i2-i1;hl=j2-j1
+            if tag=='equal':correct+=rl
+            elif tag=='delete':omitted+=rl
+            elif tag=='insert':extra+=hl
+            elif tag=='replace':
+                paired=min(rl,hl);wrong+=paired;omitted+=max(0,rl-hl);extra+=max(0,hl-rl)
+        spoken=correct+wrong+extra;accuracy=(correct/spoken*100) if spoken else 0.0;completion=(best_pos/len(ref_units)*100) if ref_units else 0.0
+        result={'ok':True,'mode':mode,'unit':'字' if mode=='中文' else ('word' if mode=='英文' else '組'),'ref_units':len(ref_units),'similarity':best_similarity,'last_position':best_pos,'correct':correct,'wrong':wrong,'omitted':omitted,'extra':extra,'accuracy':accuracy,'completion':completion,'per_minute':correct*2.0,'transcript':transcript,'engine':'faster-whisper/base','saved_folder':str(folder)}
+        (folder/'AI辨識.txt').write_text(transcript,encoding='utf-8-sig');(folder/'結果.json').write_text(json.dumps({'meta':meta,'result':result},ensure_ascii=False,indent=2),encoding='utf-8')
+        return result
+
+
+    def public_professional_reading_report_html(self) -> str:
+        """專業閱讀完成後的獨立個人報告頁；手機、iPad、電腦共用。"""
+        return r"""<!doctype html>
+<html lang='zh-Hant'>
+<head>
+<meta charset='utf-8'>
+<meta name='viewport' content='width=device-width,initial-scale=1,viewport-fit=cover'>
+<title>個人測驗報告｜Cloud Vision</title>
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:#f4f7fb;
+  color:#172033;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans TC','Microsoft JhengHei',sans-serif;
+}
+.wrap{
+  max-width:980px;
+  margin:auto;
+  padding:28px 16px 70px;
+}
+.head{
+  background:#fff;
+  border:1px solid #dce5f0;
+  border-bottom:0;
+  border-radius:20px 20px 0 0;
+  padding:26px 28px 18px;
+}
+.brand{
+  color:#3b6db3;
+  font-weight:900;
+  font-size:15px;
+}
+.head h1{
+  margin:6px 0 8px;
+  font-size:34px;
+}
+.sub{
+  color:#64748b;
+  font-size:14px;
+}
+.cards{
+  background:#fff;
+  border-left:1px solid #dce5f0;
+  border-right:1px solid #dce5f0;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+  padding:18px 28px 12px;
+}
+.card{
+  background:#f7fafc;
+  border:1px solid #dce5f0;
+  border-radius:14px;
+  padding:18px 20px;
+}
+.card:nth-child(3){grid-column:1/-1}
+.card h3{
+  margin:0 0 8px;
+  font-size:18px;
+}
+.big{
+  font-size:30px;
+  font-weight:900;
+  margin:3px 0 7px;
+}
+.meta{
+  color:#52647b;
+  line-height:1.7;
+  font-size:14px;
+}
+.analysis{
+  background:#fff;
+  border-left:1px solid #dce5f0;
+  border-right:1px solid #dce5f0;
+  margin:0;
+  padding:18px 28px 20px;
+}
+.analysis h2{
+  margin:0 0 10px;
+  font-size:22px;
+}
+.analysisText{
+  background:#fff7df;
+  border:1px solid #efd58c;
+  border-radius:13px;
+  padding:14px 16px;
+  line-height:1.8;
+  font-size:15px;
+}
+.survey{
+  margin:0;
+  background:#f4f7fb;
+  border:1px solid #dce5f0;
+  border-top:0;
+  border-radius:0 0 20px 20px;
+  padding:24px 28px 32px;
+}
+.survey h2{
+  margin:0 0 8px;
+  font-size:26px;
+}
+.q{margin:18px 0}
+.qtitle{
+  font-size:17px;
+  font-weight:900;
+  margin-bottom:10px;
+}
+.choices{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.choice{
+  border:2px solid #cfdaea;
+  background:#fff;
+  color:#172033;
+  border-radius:12px;
+  padding:11px 17px;
+  font-size:16px;
+  font-weight:850;
+  cursor:pointer;
+}
+.choice.selected{
+  background:#e8f6ed;
+  border-color:#159447;
+  color:#0e6c34;
+}
+textarea{
+  width:100%;
+  min-height:110px;
+  border:1px solid #aebed1;
+  border-radius:12px;
+  padding:12px;
+  font-size:16px;
+  resize:vertical;
+  background:#fff;
+}
+.actions{
+  display:flex;
+  justify-content:center;
+  gap:12px;
+  flex-wrap:wrap;
+  margin-top:22px;
+}
+.btn{
+  border:0;
+  border-radius:13px;
+  padding:12px 18px;
+  font-size:16px;
+  font-weight:900;
+  cursor:pointer;
+}
+.primary{background:#14823b;color:#fff}
+.restartBtn{background:#1769e0;color:#fff}
+.homeBtn{background:#14823b;color:#fff}
+.status{
+  text-align:center;
+  margin-top:12px;
+  font-weight:850;
+}
+@media(max-width:760px){
+  .wrap{padding:18px 10px 45px}
+  .head{padding:22px 18px 16px}
+  .head h1{font-size:29px}
+  .cards{grid-template-columns:1fr;padding:14px 18px 10px}
+  .card:nth-child(3){grid-column:auto}
+  .analysis{padding:16px 18px 18px}
+  .survey{padding:20px 18px 26px}
+}
+@media(max-width:560px){
+  .choices{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+  .q:nth-of-type(2) .choices{grid-template-columns:repeat(2,1fr)}
+  .choice{width:100%;padding:10px 5px;font-size:14px}
+  .actions{flex-direction:column}
+  .actions .btn{width:100%;min-height:44px}
+}
+</style>
+</head>
+<body>
+<main class='wrap'>
+  <section class='head'>
+    <div class='brand'>完成</div>
+    <h1>個人測驗結果</h1>
+    <div id='time' class='sub'></div>
+  </section>
+
+  <section class='cards'>
+    <div class='card'>
+      <h3>雙眼視力</h3>
+      <div id='va' class='big'>—</div>
+      <div id='vaMeta' class='meta'>本次測驗結果</div>
+    </div>
+    <div class='card'>
+      <h3>目前閱讀字高</h3>
+      <div id='font' class='big'>—</div>
+      <div id='fontMeta' class='meta'>—</div>
+    </div>
+    <div class='card'>
+      <h3>30 秒 AI 閱讀</h3>
+      <div id='speed' class='big'>—</div>
+      <div id='aiMeta' class='meta'>—</div>
+    </div>
+  </section>
+
+  <section class='analysis'>
+    <h2>AI 分析報告</h2>
+    <div id='analysisText' class='analysisText'></div>
+  </section>
+
+  <section class='survey'>
+    <h2>使用問卷</h2>
+    <div class='q'>
+      <div class='qtitle'>1. 您對本平台的整體使用感受？</div>
+      <div class='choices' data-group='satisfaction'>
+        <button class='choice' data-value='滿意'>滿意</button>
+        <button class='choice' data-value='普通'>普通</button>
+        <button class='choice' data-value='不滿意'>不滿意</button>
+      </div>
+    </div>
+    <div class='q'>
+      <div class='qtitle'>2. 您覺得本平台需要改善嗎？</div>
+      <div class='choices' data-group='needs_improvement'>
+        <button class='choice' data-value='不需要改善'>不需要改善</button>
+        <button class='choice' data-value='需要改善'>需要改善</button>
+      </div>
+    </div>
+    <div class='q'>
+      <div class='qtitle'>3. 改善建議（選填）</div>
+      <textarea id='suggestion' maxlength='500' placeholder='請寫下您的建議'></textarea>
+    </div>
+    <div class='actions'>
+      <button id='submit' class='btn primary'>送出問卷</button>
+      <button id='restart' class='btn restartBtn'>重新測驗</button>
+      <button id='home' class='btn homeBtn'>返回首頁</button>
+    </div>
+    <div id='status' class='status'></div>
+  </section>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+let report=null;
+try{report=JSON.parse(sessionStorage.getItem('cloudVisionFinalProfessionalReport')||'null')}catch(e){}
+if(!report){
+  $('analysisText').textContent='找不到本次測驗資料，請返回工作台重新進行測驗。';
+}else{
+  $('time').textContent='測驗時間：'+new Date(report.recorded_at||Date.now()).toLocaleString();
+  $('va').textContent=Number(report.binocular_va||0)>0?Number(report.binocular_va).toFixed(2):'—';
+  $('vaMeta').textContent='雙眼視力｜觀看距離 '+Number(report.viewing_distance_cm||0).toFixed(0)+' cm';
+  $('font').textContent=Number(report.reading_font_height_cm||0)>0?Number(report.reading_font_height_cm).toFixed(2)+' cm':'—';
+  $('fontMeta').textContent='目前使用閱讀字高｜'+(report.reading_mode||'—');
+  $('speed').textContent=(report.silence?0:Number(report.per_minute||0)).toFixed(1);
+  $('aiMeta').textContent=(report.unit||'字')+'/分鐘｜正確率 '+Number(report.accuracy||0).toFixed(1)+'%｜完成率 '+Number(report.completion||0).toFixed(1)+'%';
+
+  if(report.silence){
+    $('analysisText').textContent='本次未偵測到有效朗讀，因此閱讀速度、朗讀正確率及文章完成率皆以 0 計算。';
+  }else{
+    let t='本次雙眼視力為 '+(Number(report.binocular_va||0)>0?Number(report.binocular_va).toFixed(2):'—')+
+      '，目前閱讀字高 '+Number(report.reading_font_height_cm||0).toFixed(2)+' cm。'+
+      '30 秒閱讀速度為 '+Number(report.per_minute||0).toFixed(1)+' '+(report.unit||'字')+'/分鐘，'+
+      '朗讀正確率 '+Number(report.accuracy||0).toFixed(1)+'%，文章完成率 '+Number(report.completion||0).toFixed(1)+'%。';
+    if(Number(report.accuracy||0)>=85)t+=' 本次朗讀辨識表現良好。';
+    else if(Number(report.accuracy||0)>=70)t+=' 本次朗讀辨識表現尚可，可持續練習提升穩定度。';
+    else t+=' 本次朗讀辨識正確率較低，建議再次測量或比較其他閱讀字高。';
+    $('analysisText').textContent=t;
+  }
+}
+
+
+function detectDeviceType(){
+  const w=window.innerWidth||screen.width||0;
+  const ua=navigator.userAgent||'';
+  if(/iPad/i.test(ua) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1)) return 'iPad';
+  if(/Mobi|Android|iPhone/i.test(ua) || w<=620) return '手機';
+  if(w<=1024) return '平板';
+  return '電腦';
+}
+function ensureTestId(){
+  let id=sessionStorage.getItem('cloudVisionProfessionalTestId');
+  if(!id){
+    try{
+      id=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():('CV-'+Date.now()+'-'+Math.random().toString(36).slice(2,8));
+    }catch(e){
+      id='CV-'+Date.now()+'-'+Math.random().toString(36).slice(2,8);
+    }
+    sessionStorage.setItem('cloudVisionProfessionalTestId',id);
+  }
+  return id;
+}
+
+let survey={satisfaction:'',needs_improvement:''};
+document.querySelectorAll('.choice').forEach(btn=>{
+  btn.onclick=()=>{
+    const g=btn.parentElement.dataset.group;
+    survey[g]=btn.dataset.value;
+    btn.parentElement.querySelectorAll('.choice').forEach(b=>b.classList.toggle('selected',b===btn));
+  };
+});
+
+$('submit').onclick=async()=>{
+  if(!report){alert('沒有本次測驗資料。');return}
+  if(!survey.satisfaction){alert('請先選擇整體使用感受。');return}
+  if(!survey.needs_improvement){alert('請先選擇是否需要改善。');return}
+  let professional={};
+  try{professional=JSON.parse(localStorage.getItem('cloudVisionProfessionalV2')||'{}')||{}}catch(e){}
+  $('status').textContent='正在送出…';
+  try{
+    const r=await fetch('/cloud/professional/reading/report-submit',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        report:{
+          ...report,
+          ai_analysis_text:($('analysisText')&&$('analysisText').textContent)||'',
+          test_id:ensureTestId(),
+          device_type:detectDeviceType(),
+          submitted_at:new Date().toISOString()
+        },
+        survey:{
+          satisfaction:survey.satisfaction,
+          needs_improvement:survey.needs_improvement,
+          suggestion:$('suggestion').value||''
+        },
+        professional
+      })
+    });
+    const d=await r.json();
+    if(!r.ok||!d.ok)throw Error(d.error||'送出失敗');
+    $('status').textContent='已送出成功，測驗結果與問卷資料已存入後台。';
+  }catch(e){
+    $('status').textContent='送出失敗：'+e.message;
+  }
+};
+$('restart').onclick=()=>{
+  try{
+    sessionStorage.removeItem('cloudVisionFinalProfessionalReport');
+    sessionStorage.removeItem('cloudVisionProfessionalTestId');
+  }catch(e){}
+  location.href='/cloud/professional/reading';
+};
+$('home').onclick=()=>{location.href='/cloud'};
+</script>
+</body>
+</html>"""
 
     def public_professional_data_html(self, query_text: str = "") -> str:
         """專業人員唯讀資料頁；不修改原測驗、Excel 或管理後台。"""
@@ -2009,9 +2863,11 @@ const KEY='cloudVisionAmslerScaleV20',CAL='cloudVisionCalibrationV10';let scale=
 </style></head><body><main class='wrap'>
 <section id='astig' class='card'><div id='astigStep' class='step'></div><div id='astigEye' class='eyeTag'></div><h1>散光鐘自我觀察</h1><div class='notice'>請戴平常使用的眼鏡，在約 30 cm 距離，遮住另一眼並注視中央黑點。點選答案後會自動進入下一項：先完成右眼與左眼散光鐘，再進行右眼與左眼黃斑部。</div><div class='dialControls'><button class='dialScaleBtn' onclick='setDialScale(.75)'>75%</button><button class='dialScaleBtn' onclick='setDialScale(1)'>100%</button><button class='dialScaleBtn' onclick='setDialScale(1.25)'>125%</button><button class='dialScaleBtn' onclick='setDialScale(1.5)'>150%</button><button class='dialScaleBtn' onclick='adjustDialScale(-.025)'>－微縮</button><div id='dialReadout' class='dialReadout'>倍率 100%</div><button class='dialScaleBtn' onclick='adjustDialScale(.025)'>＋微放</button></div><div class='dialWrap'><div id='dialStage' class='dialStage'><svg id='dialSvg' class='dialSvg' viewBox='0 0 720 460'></svg></div></div><div class='answers'><button class='answer' data-value='所有線條看起來一樣' onclick='chooseAstig(this)'>所有線條看起來一樣</button><button class='answer' data-value='有些方向較深或較清楚' onclick='chooseAstig(this)'>有些方向較深或較清楚</button></div></section>
 <section id='amsler' class='card hidden'><div id='amslerStep' class='step'></div><div id='amslerEye' class='eyeTag'></div><h1>黃斑部 Amsler 方格自我觀察</h1><div class='notice'><b>測驗距離：30 公分；方格標準尺寸：10 × 10 公分。</b><br>請遮住另一眼，持續注視中央黑點。點選答案後會自動進入下一眼；完成左眼後直接顯示測驗結果，不需要再按確定。</div><div class='scaleControls'><button class='scaleBtn' onclick='adjustAmsler(-0.02)'>－ 縮小</button><div id='scaleReadout' class='scaleReadout'></div><button class='scaleBtn' onclick='adjustAmsler(0.02)'>＋ 放大</button><button class='scaleBtn' onclick='resetAmsler()'>恢復 10 cm</button></div><div class='amslerWrap'><div id='amslerGrid' class='amsler'></div></div><div class='answers'><button class='answer' data-value='格線筆直且完整' onclick='chooseAmsler(this)'>格線筆直且完整</button><button class='answer' data-value='格線彎曲、模糊或缺損' onclick='chooseAmsler(this)'>格線彎曲、模糊或缺損</button></div><div class='nav'><button class='btn gray' onclick='backOneStep()'>返回上一項</button></div></section>
-<section id='result' class='card hidden'><div class='step'>完成</div><h1>個人測驗結果</h1><p class='small'>以下為本次右眼、左眼、雙眼視力及左右眼完整紀錄，僅供參考。</p><div id='resultGrid' class='resultGrid'></div><div id='recommendation' class='notice'></div><section class='survey'><h2>使用問卷</h2><p class='small'>問卷不需要填寫姓名、電話或 Email。</p><div class='question'><div class='questionTitle'>1. 您對本平台的整體使用感受？</div><div class='surveyChoices' data-group='satisfaction'><button class='surveyChoice' data-value='滿意' onclick='chooseSurvey(this)'>滿意</button><button class='surveyChoice' data-value='普通' onclick='chooseSurvey(this)'>普通</button><button class='surveyChoice' data-value='不滿意' onclick='chooseSurvey(this)'>不滿意</button></div></div><div class='question'><div class='questionTitle'>2. 您覺得本平台需要改善嗎？</div><div class='surveyChoices' data-group='needs_improvement'><button class='surveyChoice' data-value='不需要改善' onclick='chooseSurvey(this)'>不需要改善</button><button class='surveyChoice' data-value='需要改善' onclick='chooseSurvey(this)'>需要改善</button></div></div><div class='question'><div class='questionTitle'>3. 改善建議（選填）</div><textarea id='improvementSuggestion' maxlength='500' placeholder='請寫下您的建議'></textarea></div><div class='nav'><button id='submitSurveyBtn' class='btn green' onclick='submitSurvey()'>送出問卷</button></div><div id='submitStatus' class='submitStatus'></div></section><div class='nav'><button class='btn' onclick='restart()'>重新測驗</button><button class='btn green' onclick="location.href='/cloud'">返回首頁</button></div></section></main>
+<section id='result' class='card hidden'><div class='step'>完成</div><h1>個人測驗結果</h1><p class='small'>以下整合本次右眼、左眼、雙眼視力、左右眼完整紀錄，以及本次閱讀字高與 30 秒閱讀結果，僅供參考。</p><div id='resultGrid' class='resultGrid'></div><div id='recommendation' class='notice'></div><section class='survey'><h2>使用問卷</h2><p class='small'>問卷不需要填寫姓名、電話或 Email。</p><div class='question'><div class='questionTitle'>1. 您對本平台的整體使用感受？</div><div class='surveyChoices' data-group='satisfaction'><button class='surveyChoice' data-value='滿意' onclick='chooseSurvey(this)'>滿意</button><button class='surveyChoice' data-value='普通' onclick='chooseSurvey(this)'>普通</button><button class='surveyChoice' data-value='不滿意' onclick='chooseSurvey(this)'>不滿意</button></div></div><div class='question'><div class='questionTitle'>2. 您覺得本平台需要改善嗎？</div><div class='surveyChoices' data-group='needs_improvement'><button class='surveyChoice' data-value='不需要改善' onclick='chooseSurvey(this)'>不需要改善</button><button class='surveyChoice' data-value='需要改善' onclick='chooseSurvey(this)'>需要改善</button></div></div><div class='question'><div class='questionTitle'>3. 改善建議（選填）</div><textarea id='improvementSuggestion' maxlength='500' placeholder='請寫下您的建議'></textarea></div><div class='nav'><button id='submitSurveyBtn' class='btn green' onclick='submitSurvey()'>送出問卷</button></div><div id='submitStatus' class='submitStatus'></div></section><div class='nav'><button class='btn' onclick='restart()'>重新測驗</button><button class='btn green' onclick="location.href='/cloud'">返回首頁</button></div></section></main>
 <script>
 const storeKey='cloudVisionPublicAssessmentV35',scaleKey='cloudVisionPublicAmslerScaleV19',dialScaleKey='cloudVisionPublicDialScaleV19',calKey='cloudVisionCalibrationV10';
+let readingSummary=null;
+try{readingSummary=JSON.parse(sessionStorage.getItem('cloudVisionReadingSummary')||localStorage.getItem('cloudVisionReadingSummary')||'null')}catch(e){}
 let eyeVA={right_eye_va:'',left_eye_va:'',both_eyes_va:''};
 try{eyeVA=JSON.parse(sessionStorage.getItem('cloudVisionEyeVA')||localStorage.getItem('cloudVisionEyeVA')||'{}')||eyeVA}catch(e){}
 // 以網址參數為最高優先，避免 Safari 私密瀏覽或頁面切換時 storage 遺失。
@@ -2058,11 +2914,30 @@ let surveyState={satisfaction:'',needs_improvement:''};
 function showResult(){
   if(!(state.astig.right&&state.astig.left&&state.amsler.right&&state.amsler.left))return;
   document.getElementById('astig').classList.add('hidden');document.getElementById('amsler').classList.add('hidden');document.getElementById('result').classList.remove('hidden');
-  const rows=[['右眼視力',state.vision.right?Number(state.vision.right).toFixed(2):'未記錄',false],['左眼視力',state.vision.left?Number(state.vision.left).toFixed(2):'未記錄',false],['雙眼視力',state.vision.both?Number(state.vision.both).toFixed(2):'未記錄',false],['右眼散光鐘',state.astig.right,state.astig.right.includes('有些')],['左眼散光鐘',state.astig.left,state.astig.left.includes('有些')],['右眼黃斑部',state.amsler.right,state.amsler.right.includes('彎曲')],['左眼黃斑部',state.amsler.left,state.amsler.left.includes('彎曲')]],bad=rows.slice(3).some(r=>r[2]);
+  const rows=[['右眼視力',state.vision.right?Number(state.vision.right).toFixed(2):'未記錄',false],['左眼視力',state.vision.left?Number(state.vision.left).toFixed(2):'未記錄',false],['雙眼視力',state.vision.both?Number(state.vision.both).toFixed(2):'未記錄',false],['右眼散光鐘',state.astig.right,state.astig.right.includes('有些')],['左眼散光鐘',state.astig.left,state.astig.left.includes('有些')],['右眼黃斑部',state.amsler.right,state.amsler.right.includes('彎曲')],['左眼黃斑部',state.amsler.left,state.amsler.left.includes('彎曲')]];
+  if(readingSummary){
+    const va=Number(readingSummary.measured_va||0);
+    const dist=Number(readingSummary.viewing_distance_cm||0);
+    const fontH=Number(readingSummary.reading_font_height_cm||0);
+    const speed=Number(readingSummary.per_minute||0);
+    const acc=Number(readingSummary.accuracy||0);
+    const comp=Number(readingSummary.completion||0);
+    const unit=readingSummary.unit||'字';
+    rows.push(
+      ['本次測得視力',va>0?(va.toFixed(2)+(dist>0?'（'+dist.toFixed(0)+' cm）':'')):'未記錄',false],
+      ['閱讀字高',fontH>0?(fontH.toFixed(2)+' cm'):'未記錄',false],
+      ['30 秒閱讀結果',
+       readingSummary.silence
+         ? '未偵測到有效朗讀｜0 '+unit+'/分鐘'
+         : ('閱讀速度 '+speed.toFixed(1)+' '+unit+'/分鐘｜正確率 '+acc.toFixed(1)+'%｜完成率 '+comp.toFixed(1)+'%'),
+       false]
+    );
+  }
+  const bad=rows.slice(3,7).some(r=>r[2]);
   document.getElementById('resultGrid').innerHTML=rows.map(r=>`<div class="resultBox ${r[2]?'warn':'ok'}"><strong>${r[0]}</strong><br>${r[1]}</div>`).join('');
   document.getElementById('recommendation').textContent=bad?'本次有項目呈現不一致、彎曲、模糊或缺損。結果僅供參考。':'本次左右眼自我觀察未發現明顯異常，結果僅供參考。';scrollTo(0,0);saveCompletedResult()
 }
-function resultPayload(includeSurvey=false){let visitor='';try{visitor=localStorage.getItem('cloudVisionVisitorV1019')||''}catch(e){}let pro=null;try{pro=JSON.parse(localStorage.getItem('cloudVisionProfessionalV2')||'null')}catch(e){}const payload={consent:'yes',user_type:(sessionStorage.getItem('cloudVisionCurrentUserType')||((pro&&pro.name)?'專業人員':'一般使用者')),professional_name:(pro&&pro.name)||'',professional_role:(pro&&pro.role)||'',professional_purpose:(pro&&pro.purpose)||'',visual_acuity_right:state.vision.right,visual_acuity_left:state.vision.left,visual_acuity_both:state.vision.both,astigmatism_right:state.astig.right,astigmatism_left:state.astig.left,amsler_right:state.amsler.right,amsler_left:state.amsler.left,visitor_id:visitor,session_id:sessionStorage.getItem('cloudVisionCurrentSession')||((pro&&pro.session_id)||'')};if(includeSurvey){payload.satisfaction=surveyState.satisfaction;payload.needs_improvement=surveyState.needs_improvement;payload.improvement_suggestion=document.getElementById('improvementSuggestion').value.trim()}return payload}
+function resultPayload(includeSurvey=false){let visitor='';try{visitor=localStorage.getItem('cloudVisionVisitorV1019')||''}catch(e){}let pro=null;try{pro=JSON.parse(localStorage.getItem('cloudVisionProfessionalV2')||'null')}catch(e){}const payload={consent:'yes',user_type:(sessionStorage.getItem('cloudVisionCurrentUserType')||((pro&&pro.name)?'專業人員':'一般使用者')),professional_name:(pro&&pro.name)||'',professional_role:(pro&&pro.role)||'',professional_purpose:(pro&&pro.purpose)||'',visual_acuity_right:state.vision.right,visual_acuity_left:state.vision.left,visual_acuity_both:state.vision.both,astigmatism_right:state.astig.right,astigmatism_left:state.astig.left,amsler_right:state.amsler.right,amsler_left:state.amsler.left,reading_summary:readingSummary||null,visitor_id:visitor,session_id:sessionStorage.getItem('cloudVisionCurrentSession')||((pro&&pro.session_id)||'')};if(includeSurvey){payload.satisfaction=surveyState.satisfaction;payload.needs_improvement=surveyState.needs_improvement;payload.improvement_suggestion=document.getElementById('improvementSuggestion').value.trim()}return payload}
 let completionSaved=false;async function saveCompletedResult(){if(completionSaved)return;try{const r=await fetch('/cloud/result',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(resultPayload(false)),keepalive:true}),data=await r.json();if(!r.ok||!data.ok)throw new Error(data.error||'完成紀錄送出失敗');completionSaved=true;sessionStorage.setItem('cloudVisionCompletionSaved','1')}catch(e){setTimeout(saveCompletedResult,1500)}}
 function chooseSurvey(btn){const group=btn.parentElement.dataset.group;surveyState[group]=btn.dataset.value;btn.parentElement.querySelectorAll('.surveyChoice').forEach(x=>x.classList.toggle('selected',x===btn))}
 async function submitSurvey(){if(!surveyState.satisfaction){alert('請選擇整體使用感受。');return}if(!surveyState.needs_improvement){alert('請選擇是否需要改善。');return}const btn=document.getElementById('submitSurveyBtn'),status=document.getElementById('submitStatus');btn.disabled=true;status.textContent='正在送出問卷…';try{const r=await fetch('/cloud/result',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(resultPayload(true))}),data=await r.json();if(!r.ok||!data.ok)throw new Error(data.error||'送出失敗');completionSaved=true;status.textContent='✅ 感謝您的回饋，問卷已送出。';btn.textContent='問卷已送出';document.querySelectorAll('.surveyChoice,#improvementSuggestion').forEach(x=>x.disabled=true)}catch(e){btn.disabled=false;status.textContent='⚠️ 問卷未送出，請再試一次。'}}
@@ -2248,6 +3123,181 @@ function resetCalibration(){factor=1;localStorage.removeItem(KEY);render();docum
             def do_POST(self):
                 parsed = urlparse(self.path)
                 query = parse_qs(parsed.query)
+                if parsed.path == "/cloud/professional/reading/analyze":
+                    try:
+                        from email.parser import BytesParser
+                        from email.policy import default as email_policy
+                        content_type = self.headers.get('Content-Type', '')
+                        if 'multipart/form-data' not in content_type:
+                            raise ValueError('需要 multipart/form-data')
+                        length = int(self.headers.get('Content-Length', '0') or '0')
+                        if length <= 0 or length > 30 * 1024 * 1024:
+                            raise ValueError('上傳資料大小不正確')
+                        raw_body = self.rfile.read(length)
+                        message = BytesParser(policy=email_policy).parsebytes(
+                            (f'Content-Type: {content_type}\r\nMIME-Version: 1.0\r\n\r\n').encode('utf-8') + raw_body
+                        )
+                        fields = {}
+                        audio_bytes = b''
+                        audio_filename = 'reading.webm'
+                        for part in message.iter_parts():
+                            name = part.get_param('name', header='content-disposition') or ''
+                            filename = part.get_filename()
+                            payload = part.get_payload(decode=True) or b''
+                            if name == 'audio':
+                                audio_bytes = payload
+                                if filename:
+                                    audio_filename = filename
+                            else:
+                                fields[name] = payload.decode(part.get_content_charset() or 'utf-8', 'ignore')
+                        if not audio_bytes:
+                            raise ValueError('沒有收到錄音檔')
+                        if len(audio_bytes) > 25 * 1024 * 1024:
+                            raise ValueError('錄音檔過大')
+                        def f(name, default=''):
+                            return str(fields.get(name, default))
+                        mode=f('mode','中文'); article_text=f('article','')
+                        if mode not in ('中文','英文','數字') or not article_text.strip():
+                            raise ValueError('閱讀材料資料不完整')
+                        meta={'professional_name':f('professional_name'),'professional_role':f('professional_role'),'professional_purpose':f('professional_purpose'),'session_id':f('session_id'),'version':f('version'),'size_cm':f('size_cm'),'subject_id':f('subject_id'),'subject_name':f('subject_name'),'birth_date':f('birth_date'),'age':f('age'),'sex':f('sex'),'test_no':f('test_no'),'tested_at':datetime.now().isoformat(timespec='seconds')}
+                        result=app._analyze_browser_reading(audio_bytes,audio_filename,mode,article_text,meta)
+                        self._send(json.dumps(result,ensure_ascii=False),200,'application/json; charset=utf-8')
+                    except Exception as exc:
+                        self._send(json.dumps({'ok':False,'error':str(exc)},ensure_ascii=False),500,'application/json; charset=utf-8')
+                    return
+                if parsed.path == "/cloud/professional/reading/save":
+                    try:
+                        length=int(self.headers.get('Content-Length','0') or '0')
+                        payload=json.loads(self.rfile.read(length).decode('utf-8')) if length else {}
+                        folder=Path(str(payload.get('saved_folder','')))
+                        if not folder.exists(): raise ValueError('本次資料夾不存在')
+                        article=str(payload.get('article','')); corrected=str(payload.get('corrected','')); subject=payload.get('subject') or {}; result=payload.get('result') or {}
+                        (folder/'人工修正.txt').write_text(corrected,encoding='utf-8-sig')
+                        row={'測驗編號':folder.name,'受試者編號':subject.get('subject_id',''),'姓名':subject.get('name',''),'出生年月日':subject.get('birth',''),'年齡':subject.get('age',''),'性別':subject.get('sex',''),'第幾次測驗':subject.get('test_no',''),'測試時間':datetime.now().isoformat(timespec='milliseconds'),'閱讀模式':payload.get('reading_mode') or payload.get('mode',''),'閱讀版本':payload.get('version',''),'字高_cm':payload.get('size_cm',''),'錄音秒數':30.0,'本次資料夾':str(folder),'AI引擎':result.get('engine',''),'全文單位數':result.get('ref_units',''),'最後閱讀位置':result.get('last_position',''),'正確單位':result.get('correct',''),'念錯':result.get('wrong',''),'漏讀':result.get('omitted',''),'多讀':result.get('extra',''),'朗讀正確率_pct':result.get('accuracy',''),'文章完成率_pct':result.get('completion',''),'每分鐘正確閱讀單位':result.get('per_minute',''),'AI原始辨識文字':result.get('transcript',''),'人工修正文字':corrected}
+                        (folder/'結果摘要.txt').write_text('\n'.join(f'{k}：{v}' for k,v in row.items())+'\n\n【閱讀原文】\n'+article+'\n\n【人工修正後文字】\n'+corrected,encoding='utf-8-sig')
+                        (folder/'閱讀結果.json').write_text(json.dumps(row,ensure_ascii=False,indent=2),encoding='utf-8-sig')
+                        try:
+                            from openpyxl import Workbook, load_workbook
+                            wb=Workbook();ws=wb.active;ws.title='閱讀結果';ws.append(['欄位','內容'])
+                            for k,v in row.items():ws.append([k,v])
+                            wb.save(folder/'閱讀結果.xlsx')
+                            total=folder.parents[1]/'閱讀結果總表.xlsx'
+                            if total.exists():twb=load_workbook(total);tws=twb.active
+                            else:twb=Workbook();tws=twb.active;tws.title='總表';tws.append(list(row.keys()))
+                            tws.append(list(row.values()));twb.save(total)
+                        except Exception as xexc:(folder/'Excel建立錯誤.txt').write_text(str(xexc),encoding='utf-8-sig')
+                        import csv
+                        csvp=folder.parents[1]/'30秒閱讀_AI完整紀錄.csv';exists=csvp.exists()
+                        with csvp.open('a',newline='',encoding='utf-8-sig') as fh:
+                            w=csv.DictWriter(fh,fieldnames=list(row.keys()));
+                            if not exists:w.writeheader()
+                            w.writerow({k:str(v).replace('\n',' ') for k,v in row.items()})
+                        self._send(json.dumps({'ok':True},ensure_ascii=False),200,'application/json; charset=utf-8')
+                    except Exception as exc:self._send(json.dumps({'ok':False,'error':str(exc)},ensure_ascii=False),500,'application/json; charset=utf-8')
+                    return
+                if parsed.path == "/cloud/professional/reading/report-submit":
+                    try:
+                        length=int(self.headers.get('Content-Length','0') or '0')
+                        payload=json.loads(self.rfile.read(length).decode('utf-8')) if length else {}
+                        report=payload.get('report') or {}
+                        survey=payload.get('survey') or {}
+                        professional=payload.get('professional') or {}
+                        saved_folder_text=str(report.get('saved_folder','') or '')
+                        saved_folder=Path(saved_folder_text) if saved_folder_text else None
+                        if saved_folder and saved_folder.exists():
+                            base_folder=saved_folder
+                            total_root=saved_folder.parents[1] if len(saved_folder.parents)>=2 else saved_folder.parent
+                        else:
+                            total_root=Path.home()/'Documents'/'CloudVision_專業測驗報告'
+                            total_root.mkdir(parents=True,exist_ok=True)
+                            base_folder=total_root
+
+                        row={
+                            '時間':report.get('submitted_at') or datetime.now().isoformat(timespec='seconds'),
+                            '測驗編號':report.get('test_id',''),
+                            '裝置類型':report.get('device_type',''),
+                            '專業使用者':professional.get('name',''),
+                            '身分':professional.get('role',''),
+
+                            '雙眼視力':report.get('binocular_va',0),
+                            '觀看距離cm':report.get('viewing_distance_cm',0),
+
+                            '目前閱讀字高cm':report.get('reading_font_height_cm',0),
+                            '閱讀模式':report.get('reading_mode',''),
+                            '閱讀版本':report.get('reading_version',''),
+
+                            '30秒閱讀速度':report.get('per_minute',0),
+                            '單位':report.get('unit',''),
+                            'AI朗讀正確率%':report.get('accuracy',0),
+                            '文章完成率%':report.get('completion',0),
+                            '最後閱讀位置':report.get('last_position',0),
+                            '正確':report.get('correct',0),
+                            '念錯':report.get('wrong',0),
+                            '漏讀':report.get('omitted',0),
+                            '多讀':report.get('extra',0),
+                            '是否靜音':report.get('silence',False),
+
+                            'AI分析文字':report.get('ai_analysis_text',''),
+
+                            '整體使用感受':survey.get('satisfaction',''),
+                            '是否需要改善':survey.get('needs_improvement',''),
+                            '改善建議':survey.get('suggestion','')
+                        }
+
+                        (base_folder/'AI測驗報告.json').write_text(
+                            json.dumps(row,ensure_ascii=False,indent=2),
+                            encoding='utf-8-sig'
+                        )
+
+                        import csv
+                        csvp=total_root/'AI測驗報告總表.csv'
+                        exists=csvp.exists()
+                        with csvp.open('a',newline='',encoding='utf-8-sig') as fh:
+                            w=csv.DictWriter(fh,fieldnames=list(row.keys()))
+                            if not exists:w.writeheader()
+                            w.writerow(row)
+
+                        try:
+                            from openpyxl import Workbook, load_workbook
+                            xlsx=total_root/'AI測驗報告總表.xlsx'
+                            if xlsx.exists():
+                                wb=load_workbook(xlsx);ws=wb.active
+                            else:
+                                wb=Workbook();ws=wb.active;ws.title='AI測驗報告';ws.append(list(row.keys()))
+                            ws.append(list(row.values()))
+                            wb.save(xlsx)
+                        except Exception:
+                            pass
+
+                        self._send(json.dumps({'ok':True},ensure_ascii=False),200,'application/json; charset=utf-8')
+                    except Exception as exc:
+                        self._send(json.dumps({'ok':False,'error':str(exc)},ensure_ascii=False),500,'application/json; charset=utf-8')
+                    return
+                if parsed.path == "/cloud/professional/reading/feedback":
+                    try:
+                        length=int(self.headers.get('Content-Length','0') or '0')
+                        payload=json.loads(self.rfile.read(length).decode('utf-8')) if length else {}
+                        folder=Path(str(payload.get('saved_folder','')))
+                        if not folder.exists(): raise ValueError('本次資料夾不存在')
+                        satisfaction=str(payload.get('satisfaction','')).strip()
+                        comment=str(payload.get('comment','')).strip()[:500]
+                        data={'時間':datetime.now().isoformat(timespec='seconds'),'滿意度':satisfaction,'給我們指教':comment}
+                        (folder/'使用回饋.json').write_text(json.dumps(data,ensure_ascii=False,indent=2),encoding='utf-8-sig')
+                        (folder/'使用回饋.txt').write_text('\n'.join(f'{k}：{v}' for k,v in data.items()),encoding='utf-8-sig')
+                        self._send(json.dumps({'ok':True},ensure_ascii=False),200,'application/json; charset=utf-8')
+                    except Exception as exc:
+                        self._send(json.dumps({'ok':False,'error':str(exc)},ensure_ascii=False),500,'application/json; charset=utf-8')
+                    return
+                if parsed.path == "/cloud/professional/reading/open-folder":
+                    try:
+                        length=int(self.headers.get('Content-Length','0') or '0');payload=json.loads(self.rfile.read(length).decode('utf-8')) if length else {};folder=Path(str(payload.get('saved_folder','')));kind=payload.get('kind','session')
+                        target=folder if kind=='session' else (folder.parent if kind=='subject' else folder.parents[1])
+                        if os.name=='nt':os.startfile(str(target))
+                        elif sys.platform=='darwin':subprocess.Popen(['open',str(target)])
+                        else:subprocess.Popen(['xdg-open',str(target)])
+                        self._send(json.dumps({'ok':True}),200,'application/json; charset=utf-8')
+                    except Exception as exc:self._send(json.dumps({'ok':False,'error':str(exc)},ensure_ascii=False),500,'application/json; charset=utf-8')
+                    return
                 if parsed.path == "/examiner/login":
                     try:
                         length = int(self.headers.get("Content-Length", "0") or "0")
@@ -2489,6 +3539,12 @@ function resetCalibration(){factor=1;localStorage.removeItem(KEY);render();docum
                     self._send(app.public_professional_disclaimer_html())
                 elif parsed.path == "/cloud/professional/hub":
                     self._send(app.public_professional_hub_html())
+                elif parsed.path == "/cloud/professional/vision":
+                    self._send(app.public_professional_vision_html())
+                elif parsed.path == "/cloud/professional/reading":
+                    self._send(app.public_professional_reading_html())
+                elif parsed.path == "/cloud/professional/reading/report":
+                    self._send(app.public_professional_reading_report_html())
                 elif parsed.path == "/cloud/professional/data":
                     self._send(app.public_professional_data_html(query.get("q", [""])[0]))
                 elif parsed.path == "/cloud/professional/today.xlsx":
@@ -2554,9 +3610,8 @@ function resetCalibration(){factor=1;localStorage.removeItem(KEY);render();docum
                 elif parsed.path == "/cloud/detail":
                     self._send(app.public_detail_html(query.get("id", [""])[0]))
                 elif parsed.path in ("/", "/remote"):
-                    # 正式雲端首頁直接顯示原本已完成的雙入口頁面。
-                    # 不再使用「已連到 Cloud Vision」的臨時單按鈕轉接頁。
-                    self._send(app.public_home_html())
+                    # 直接進入 Cloud Vision 首頁，不顯示多餘中繼頁。
+                    self._redirect("/cloud")
                 elif parsed.path in ("/control", "/participant", "/command", "/answer", "/state", "/estimate", "/control_estimate") and not app._valid_connection_session(query):
                     self._send("此連線頁面已失效，請重新掃描電腦畫面上的最新 QR Code。", 403, "text/plain; charset=utf-8")
                 elif parsed.path == "/control":
@@ -5854,6 +6909,8 @@ startCalibration();startParticipantPolling(true);
         self.root.after(50, self._center_chart_frame)
 
     def _on_canvas_resize(self, event: tk.Event) -> None:
+        if os.environ.get("CLOUD_MODE", "0") == "1":
+            return
         width = max(700, event.width)
         if self.current_view in ("dial", "amsler", "worth"):
             height = max(500, event.height)
@@ -5876,6 +6933,8 @@ startCalibration();startParticipantPolling(true);
         self._resize_after_id = self.root.after(80, self._center_chart_frame)
 
     def _center_chart_frame(self) -> None:
+        if os.environ.get("CLOUD_MODE", "0") == "1":
+            return
         if not self.canvas.winfo_exists():
             return
         width = max(700, self.canvas.winfo_width())
@@ -5899,232 +6958,10 @@ startCalibration();startParticipantPolling(true);
 
 
 def main() -> None:
-    cloud_mode = os.environ.get("CLOUDVISION_BACKEND", "").strip().lower() in {"1", "true", "yes", "on"}
     root = tk.Tk()
-    FullscreenAcuityChart(root, cloud_mode=cloud_mode)
+    FullscreenAcuityChart(root)
     root.mainloop()
 
 
-# -----------------------------------------------------------------------------
-# Railway / Gunicorn WSGI compatibility layer
-# -----------------------------------------------------------------------------
-_backend_process = None
-_xvfb_process = None
-_backend_lock = threading.Lock()
-_backend_port = 8765
-
-
-def _ensure_virtual_display(env: dict | None = None) -> str:
-    """Ensure a working Xvfb display exists and return its DISPLAY value."""
-    global _xvfb_process
-    target_env = env if env is not None else os.environ
-    display = str(target_env.get("DISPLAY", "")).strip()
-    if display:
-        # Railway/Nixpacks 有時會留下 DISPLAY=:0，但實際沒有可連線的 X server。
-        # 必須先用 Tk 實測，成功才沿用；失敗則清除並啟動自己的 Xvfb。
-        probe = None
-        try:
-            probe = tk.Tk()
-            probe.withdraw()
-            probe.update_idletasks()
-            return display
-        except tk.TclError:
-            target_env.pop("DISPLAY", None)
-            os.environ.pop("DISPLAY", None)
-            display = ""
-        finally:
-            if probe is not None:
-                try:
-                    probe.destroy()
-                except Exception:
-                    pass
-
-    xvfb = shutil.which("Xvfb")
-    if not xvfb:
-        raise RuntimeError("找不到 Xvfb；請確認 nixpacks.toml 已安裝 xvfb。")
-
-    display = ":99"
-    socket_path = "/tmp/.X11-unix/X99"
-    lock_path = "/tmp/.X99-lock"
-    # Remove stale files only when no Xvfb process owned by this app is alive.
-    if _xvfb_process is None or _xvfb_process.poll() is not None:
-        for stale in (socket_path, lock_path):
-            try:
-                os.remove(stale)
-            except FileNotFoundError:
-                pass
-            except OSError:
-                pass
-        _xvfb_process = subprocess.Popen(
-            [xvfb, display, "-screen", "0", "1280x1024x24", "-ac", "-nolisten", "tcp"],
-            stdout=sys.stdout,
-            stderr=sys.stderr,
-        )
-
-    target_env["DISPLAY"] = display
-    os.environ["DISPLAY"] = display
-
-    deadline = time.time() + 10
-    while time.time() < deadline:
-        if _xvfb_process is not None and _xvfb_process.poll() is not None:
-            raise RuntimeError("Xvfb 啟動後立即結束，無法提供虛擬螢幕。")
-        if os.path.exists(socket_path):
-            # Verify that Tk can actually connect before continuing.
-            probe = None
-            try:
-                probe = tk.Tk()
-                probe.withdraw()
-                probe.update_idletasks()
-                return display
-            except tk.TclError:
-                pass
-            finally:
-                if probe is not None:
-                    try:
-                        probe.destroy()
-                    except Exception:
-                        pass
-        time.sleep(0.2)
-    raise RuntimeError("Xvfb 已啟動，但 Tkinter 在 10 秒內仍無法連上 DISPLAY=:99。")
-
-
-def _backend_is_ready(timeout: float = 0.5) -> bool:
-    try:
-        with socket.create_connection(("127.0.0.1", _backend_port), timeout=timeout):
-            return True
-    except OSError:
-        return False
-
-
-def _ensure_backend_started() -> None:
-    global _backend_process
-    if _backend_is_ready():
-        return
-    with _backend_lock:
-        if _backend_is_ready():
-            return
-        if _backend_process is not None and _backend_process.poll() is None:
-            return
-        env = os.environ.copy()
-        env["CLOUDVISION_BACKEND"] = "1"
-        env["CLOUDVISION_BACKEND_PORT"] = str(_backend_port)
-        display = _ensure_virtual_display(env)
-        print(f"Cloud Vision parent prepared DISPLAY={display}", flush=True)
-        script_path = os.path.abspath(__file__)
-        command = [sys.executable, script_path]
-        _backend_process = subprocess.Popen(command, env=env, stdout=sys.stdout, stderr=sys.stderr)
-
-
-def _status_response(start_response, status: str, message: str):
-    body = message.encode("utf-8")
-    start_response(status, [("Content-Type", "text/plain; charset=utf-8"), ("Content-Length", str(len(body))), ("Cache-Control", "no-store")])
-    return [body]
-
-
-def app(environ, start_response):
-    """Railway 使用的 WSGI 入口；把請求轉送到原本 V4.4 網頁伺服器。"""
-    method = environ.get("REQUEST_METHOD", "GET")
-    path = environ.get("PATH_INFO", "/") or "/"
-
-    # Railway 的啟動健康檢查等待時間很短。先立即回覆 200，
-    # 同時在背景啟動原本的 Tk / HTTP 後端，避免部署被誤判失敗。
-    if path in {"/health", "/healthz", "/__health"}:
-        return _status_response(start_response, "200 OK", "ok")
-
-    _ensure_backend_started()
-    if not _backend_is_ready():
-        if path == "/":
-            body = ("<!doctype html><html lang='zh-Hant'><head><meta charset='utf-8'>"
-                    "<meta http-equiv='refresh' content='3'>"
-                    "<meta name='viewport' content='width=device-width,initial-scale=1'>"
-                    "<title>Cloud Vision 啟動中</title></head>"
-                    "<body style='font-family:sans-serif;text-align:center;padding:48px'>"
-                    "<h2>Cloud Vision 正在啟動</h2><p>系統準備完成後會自動重新整理。</p>"
-                    "</body></html>").encode("utf-8")
-            start_response("200 OK", [
-                ("Content-Type", "text/html; charset=utf-8"),
-                ("Content-Length", str(len(body))),
-                ("Cache-Control", "no-store"),
-            ])
-            return [body]
-        return _status_response(start_response, "503 Service Unavailable", "Cloud Vision 後端正在啟動，請稍後重試。")
-
-    from http.client import HTTPConnection
-    query = environ.get("QUERY_STRING", "")
-    target = path + (("?" + query) if query else "")
-    try:
-        length = int(environ.get("CONTENT_LENGTH", "") or 0)
-    except ValueError:
-        length = 0
-    body = environ["wsgi.input"].read(length) if length > 0 else None
-    headers = {}
-    for key, value in environ.items():
-        if key.startswith("HTTP_"):
-            name = key[5:].replace("_", "-").title()
-            if name not in {"Host", "Connection", "Content-Length"}:
-                headers[name] = value
-    if environ.get("CONTENT_TYPE"):
-        headers["Content-Type"] = environ["CONTENT_TYPE"]
-    if body is not None:
-        headers["Content-Length"] = str(len(body))
-    headers["Host"] = f"127.0.0.1:{_backend_port}"
-    headers["X-Forwarded-Proto"] = environ.get("HTTP_X_FORWARDED_PROTO", "https")
-    headers["X-Forwarded-For"] = environ.get("HTTP_X_FORWARDED_FOR", environ.get("REMOTE_ADDR", ""))
-
-    connection = HTTPConnection("127.0.0.1", _backend_port, timeout=120)
-    try:
-        connection.request(method, target, body=body, headers=headers)
-        response = connection.getresponse()
-        response_body = response.read()
-        excluded = {"connection", "keep-alive", "proxy-authenticate", "proxy-authorization", "te", "trailers", "transfer-encoding", "upgrade", "content-length"}
-        response_headers = [(name, value) for name, value in response.getheaders() if name.lower() not in excluded]
-        response_headers.append(("Content-Length", str(len(response_body))))
-        start_response(f"{response.status} {response.reason}", response_headers)
-        return [response_body]
-    except Exception as exc:
-        return _status_response(start_response, "502 Bad Gateway", f"Cloud Vision 連線失敗：{exc}")
-    finally:
-        connection.close()
-
-
-def _run_railway_entrypoint() -> None:
-    """Railway 即使以 `python app.py` 啟動，也先切換到 Web 伺服器。"""
-    port = os.environ.get("PORT", "").strip()
-    is_railway = bool(port) or bool(os.environ.get("RAILWAY_ENVIRONMENT")) or bool(os.environ.get("RAILWAY_PROJECT_ID"))
-    is_backend = os.environ.get("CLOUDVISION_BACKEND", "").strip().lower() in {"1", "true", "yes", "on"}
-
-    if is_backend:
-        # The parent normally prepares DISPLAY before spawning this process.
-        # Keep this fallback so direct backend starts are safe too.
-        display = _ensure_virtual_display()
-        print(f"Cloud Vision backend verified DISPLAY={display}", flush=True)
-        main()
-        return
-
-    if is_railway:
-        # 避免 Railway 的自訂啟動命令仍是 `python app.py` 時直接呼叫 tk.Tk()。
-        bind_port = port or "8080"
-        gunicorn = shutil.which("gunicorn")
-        if gunicorn:
-            os.execv(gunicorn, [
-                gunicorn, "app:app",
-                "--bind", f"0.0.0.0:{bind_port}",
-                "--workers", "1",
-                "--threads", "4",
-                "--timeout", "180",
-                "--access-logfile", "-",
-                "--error-logfile", "-",
-            ])
-        # 極端情況：gunicorn 指令不存在時，使用 Python 內建 WSGI 伺服器。
-        from wsgiref.simple_server import make_server
-        with make_server("0.0.0.0", int(bind_port), app) as server:
-            print(f"Cloud Vision Web listening on 0.0.0.0:{bind_port}", flush=True)
-            server.serve_forever()
-        return
-
-    # 本機直接執行時仍保留原本桌面版。
-    main()
-
-
 if __name__ == "__main__":
-    _run_railway_entrypoint()
+    main()

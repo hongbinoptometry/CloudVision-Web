@@ -1,12 +1,8 @@
 [phases.setup]
-nixPkgs = ["python311", "python311Packages.pip"]
-aptPkgs = ["python3-tk", "xvfb", "fonts-dejavu-core"]
+aptPkgs = ["xvfb", "python3-tk", "ffmpeg", "libgl1", "libglib2.0-0", "fonts-noto-cjk"]
 
 [phases.install]
-cmds = [
-  "python -m pip install --upgrade pip",
-  "python -m pip install -r requirements.txt"
-]
+cmds = ["python -m pip install --upgrade pip", "pip install -r requirements.txt"]
 
 [start]
-cmd = "gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 180 --access-logfile - --error-logfile -"
+cmd = "CLOUD_MODE=1 xvfb-run -a python app.py"
