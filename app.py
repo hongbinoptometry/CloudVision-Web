@@ -1,7 +1,4 @@
-# Cloud Vision 雙入口整合版｜瀏覽器先行 AI閱讀速度測試版
-# 基準：新版「一般使用者／專業人員」雙入口程式。
-# 整合來源：先前成功的 app (3).py 流程（5 cm 校正、右眼／左眼／雙眼視力、結果與使用時間紀錄、管理資料）。
-# 原則：保留新版雙入口、專業教學工具與既有雲端資料功能，不退回舊版單入口架構。
+# Cloud Vision V3.0：教學／研究版；一般使用者匿名、專業人員分類登錄、使用統計與問卷自動寫入背景 Excel。
 # Cloud Vision V11.1-1：後台統計卡可點擊、今日名單可篩選、個人詳細資料。
 # Cloud Vision V10.7：只修改第一個確認視標頁，改為可捲動並加入 Safari 底部安全留白。
 # Cloud Vision V6.3：恢復完整校正流程，完整視力表頁可上下捲動到底部。
@@ -83,7 +80,8 @@ DECIMAL_LEVELS = [
 
 
 class FullscreenAcuityChart:
-    def __init__(self, root: tk.Tk) -> None:
+    def __init__(self, root: tk.Tk, cloud_mode: bool = False) -> None:
+        self.cloud_mode = cloud_mode
         self.root = root
         self.root.title(APP_TITLE)
         self.root.configure(background="white")
@@ -128,7 +126,7 @@ class FullscreenAcuityChart:
         self._thorington_previous_fullscreen = False
         self.remote_server = None
         self.remote_thread = None
-        self.remote_port = int(os.environ.get("PORT", "8765"))
+        self.remote_port = int(os.environ.get("CLOUDVISION_BACKEND_PORT", "8765"))
         # 連線方式：wifi=電腦與手機連同一個 Wi-Fi；hotspot=手機連電腦行動熱點。
         # 預設使用共用 Wi-Fi，避免手機已連家中 Wi-Fi 時，QR Code 卻誤用 192.168.137.1。
         self.connection_mode = "wifi"
@@ -219,12 +217,17 @@ class FullscreenAcuityChart:
         self._bind_keys()
         self.randomize_letters(refresh=False)
 
-        # 啟動即全畫面。
-        self.root.after(50, lambda: self.set_fullscreen(True))
-        self.root.after(150, self.refresh_chart)
         self.root.after(100, self._poll_remote_commands)
-        # 啟動時先讓測驗者選擇「共用 Wi-Fi」或「電腦行動熱點」。
-        self.root.after(350, self.choose_connection_mode)
+        if self.cloud_mode:
+            # Railway 後端：隱藏 Tkinter 視窗，只啟動原本的網頁伺服器。
+            self.root.withdraw()
+            self.connection_ip = "127.0.0.1"
+            self.start_remote_server()
+        else:
+            # 本機教學版維持原本的全畫面與連線選擇流程。
+            self.root.after(50, lambda: self.set_fullscreen(True))
+            self.root.after(150, self.refresh_chart)
+            self.root.after(350, self.choose_connection_mode)
 
 
     def _load_hotspot_settings(self) -> None:
@@ -905,9 +908,7 @@ class FullscreenAcuityChart:
         return bool(supplied) and secrets.compare_digest(supplied, self.connection_session_token)
 
     def _ip_matches_current_mode(self, ip: str) -> bool:
-        """只接受目前連線模式所在網段的裝置；雲端模式接受公開網路裝置。"""
-        if os.environ.get("CLOUD_MODE", "0") == "1":
-            return bool(ip)
+        """只接受目前連線模式所在網段的裝置，避免舊 Wi-Fi 頁面被誤算。"""
         if not ip:
             return False
         if self.connection_mode == "hotspot":
@@ -1719,8 +1720,62 @@ class FullscreenAcuityChart:
     def public_home_html(self) -> str:
         """公開首頁僅介紹平台與研究資訊，不在首頁啟動校正或測驗。"""
         return """<!doctype html><html lang='zh-Hant'><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1,viewport-fit=cover'><title>Cloud Vision｜視覺功能平台</title><style>
-*{box-sizing:border-box}body{margin:0;background:linear-gradient(180deg,#eef5ff,#f7f9fc);color:#172033;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans TC',sans-serif}.wrap{max-width:900px;margin:auto;padding:34px 18px 70px}.hero{text-align:center;padding:22px 10px}.logo{font-size:48px}h1{font-size:38px;margin:5px 0}.subtitle{font-size:20px;color:#4d6078;margin:8px 0 24px}.card{background:#fff;border:1px solid #dce5f0;border-radius:22px;padding:26px;box-shadow:0 8px 28px rgba(29,51,84,.08);margin-bottom:18px}.intro{font-size:18px;line-height:1.8;text-align:center}.research{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:20px}.info{background:#f7faff;border:1px solid #dce7f6;border-radius:15px;padding:16px;text-align:center}.label{color:#64748b;font-size:14px}.value{font-size:20px;font-weight:900;margin-top:5px}.actions{display:grid;grid-template-columns:1fr 1fr;gap:14px}.btn{display:block;text-decoration:none;color:#fff;text-align:center;border-radius:16px;padding:20px 12px;font-size:21px;font-weight:900}.general{background:#1769e0}.professional{background:#14823b}.small{display:block;font-size:14px;font-weight:600;opacity:.92;margin-top:6px}.notice{font-size:14px;line-height:1.7;color:#64748b;text-align:center}.link{color:#244f91;font-weight:800}@media(max-width:900px){.wrap{max-width:760px}.card{padding:22px}.btn{font-size:20px}}@media(max-width:650px){h1{font-size:31px}.research,.actions{grid-template-columns:1fr}.wrap{padding-top:20px}.card{padding:20px}}
-</style></head><body><main class='wrap'><section class='hero'><div class='logo'>☁️👁️</div><h1>Cloud Vision</h1><div class='subtitle'>視覺功能測驗與教學平台</div></section><section class='card'><div class='intro'>本平台為教學與研究使用之 Beta 版本，提供視力、散光鐘、黃斑部 Amsler 方格、螢幕尺度校正，以及視覺功能相關教學工具。請依使用身分選擇入口，使用後可提供回饋協助改善。</div><div class='research'><div class='info'><div class='label'>開發者／學生</div><div class='value'>黃昭維</div><div>大葉大學研究所二年級</div></div><div class='info'><div class='label'>指導老師</div><div class='value'>黃敬堯</div><div>研究指導</div></div><div class='info'><div class='label'>聯絡方式</div><div class='value'>LINE ID</div><div>a0937587396</div></div><div class='info'><div class='label'>平台用途</div><div class='value'>研究・測驗・教學</div><div>瀏覽器直接使用</div></div></div></section><section class='actions'><a id='generalEntry' class='btn general' href='/cloud/general'>一般使用者<span class='small'>開始視覺功能自我測驗</span></a><a id='professionalEntry' class='btn professional' href='/cloud/professional'>專業使用者<span class='small'>填寫資料後進入測驗或教學</span></a></section><section class='card notice'>本平台結果僅供研究、教育與初步自我觀察，不作為醫療診斷依據。<br><a class='link' href='/cloud/disclaimer'>查看平台說明與完整免責聲明</a><br><br>© 2026 Cloud Vision｜開發者：黃昭維｜指導老師：黃敬堯</section></main><script>
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(180deg,#eef5ff,#f7f9fc);color:#172033;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans TC',sans-serif}.wrap{max-width:900px;margin:auto;padding:34px 18px 70px}.hero{text-align:center;padding:22px 10px}.logo{font-size:48px}h1{font-size:38px;margin:5px 0}.subtitle{font-size:20px;color:#4d6078;margin:8px 0 24px}.card{background:#fff;border:1px solid #dce5f0;border-radius:22px;padding:26px;box-shadow:0 8px 28px rgba(29,51,84,.08);margin-bottom:18px}.intro{font-size:18px;line-height:1.8;text-align:center}.research{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:20px}.info{background:#f7faff;border:1px solid #dce7f6;border-radius:15px;padding:16px;text-align:center}.label{color:#64748b;font-size:14px}.value{font-size:20px;font-weight:900;margin-top:5px}.actions{display:grid;grid-template-columns:1fr 1fr;gap:14px}.examiner-entry{display:block;margin-top:14px;text-decoration:none;color:#fff;text-align:center;border-radius:16px;padding:18px 12px;font-size:20px;font-weight:900;background:#27364a;border:2px solid #172033}.examiner-entry .small{font-size:14px}.examiner-entry:hover{filter:brightness(1.06)}.btn{display:block;text-decoration:none;color:#fff;text-align:center;border-radius:16px;padding:20px 12px;font-size:21px;font-weight:900}.general{background:#1769e0}.professional{background:#14823b}.small{display:block;font-size:14px;font-weight:600;opacity:.92;margin-top:6px}.notice{font-size:14px;line-height:1.7;color:#64748b;text-align:center}.link{color:#244f91;font-weight:800}.device-badge{position:fixed;top:14px;right:14px;z-index:9999;padding:10px 14px;border-radius:999px;background:#172033;color:#fff;font-weight:900;font-size:15px;box-shadow:0 6px 18px rgba(0,0,0,.18)}
+/* 三種裝置明顯不同，方便現場立即驗證 */
+html.device-desktop .wrap{max-width:980px;padding-top:42px}
+html.device-desktop .actions{grid-template-columns:1fr 1fr}
+html.device-desktop .btn{min-height:86px}
+html.device-tablet body{background:linear-gradient(180deg,#fff8e8,#f7f9fc)}
+html.device-tablet .wrap{max-width:880px;padding:34px 28px 72px}
+html.device-tablet .hero{padding-top:34px}
+html.device-tablet .card{padding:30px;border-radius:26px}
+html.device-tablet .intro{font-size:20px}
+html.device-tablet .btn{padding:26px 16px;font-size:25px;min-height:94px}
+html.device-tablet .device-badge{background:#a15c00}
+html.device-phone body{background:linear-gradient(180deg,#eefcf3,#f7f9fc)}
+html.device-phone .wrap{max-width:100%;padding:58px 12px 42px}
+html.device-phone .hero{padding:6px 6px 14px}
+html.device-phone .logo{font-size:36px}
+html.device-phone h1{font-size:29px}
+html.device-phone .subtitle{font-size:16px;margin-bottom:14px}
+html.device-phone .card{padding:17px;border-radius:17px}
+html.device-phone .intro{font-size:16px;line-height:1.65}
+html.device-phone .research,html.device-phone .actions{grid-template-columns:1fr}html.device-phone .examiner-entry{padding:20px 12px;font-size:22px;min-height:82px}
+html.device-phone .research{gap:9px}
+html.device-phone .info{padding:13px}
+html.device-phone .btn{padding:22px 12px;font-size:23px;min-height:88px;border-radius:18px}
+html.device-phone .device-badge{top:8px;right:8px;background:#0b7a3b;font-size:14px;padding:9px 12px}
+@media(max-width:650px){h1{font-size:29px}.research,.actions{grid-template-columns:1fr}.wrap{padding-top:58px}.card{padding:17px}}
+</style></head><body><div id='deviceBadge' class='device-badge'>正在判斷裝置…</div><main class='wrap'><section class='hero'><div class='logo'>☁️👁️</div><h1>Cloud Vision</h1><div class='subtitle'>視覺功能測驗與教學平台</div></section><section class='card'><div class='intro'>本平台為教學與研究使用之 Beta 版本，提供視力、散光鐘、黃斑部 Amsler 方格、螢幕尺度校正，以及視覺功能相關教學工具。請依使用身分選擇入口，使用後可提供回饋協助改善。</div><div class='research'><div class='info'><div class='label'>開發者／學生</div><div class='value'>黃昭維</div><div>大葉大學研究所二年級</div></div><div class='info'><div class='label'>指導老師</div><div class='value'>黃敬堯</div><div>研究指導</div></div><div class='info'><div class='label'>聯絡方式</div><div class='value'>LINE ID</div><div>a0937587396</div></div><div class='info'><div class='label'>平台用途</div><div class='value'>研究・測驗・教學</div><div>瀏覽器直接使用</div></div></div></section><section class='actions'><a id='generalEntry' class='btn general' href='/cloud/general'>一般使用者<span class='small'>開始視覺功能自我測驗</span></a><a id='professionalEntry' class='btn professional' href='/cloud/professional'>專業使用者<span class='small'>填寫資料後進入測驗或教學</span></a></section><a id='examinerEntry' class='examiner-entry' href='/examiner'>🔒 檢查者後台<span class='small'>密碼登入・查看今日資料・進入手機／iPad控制台</span></a><section class='card notice'>本平台結果僅供研究、教育與初步自我觀察，不作為醫療診斷依據。<br><a class='link' href='/cloud/disclaimer'>查看平台說明與完整免責聲明</a><br><br>© 2026 Cloud Vision｜開發者：黃昭維｜指導老師：黃敬堯</section></main><script>
+(function detectCloudVisionDevice(){
+  const ua=navigator.userAgent||'';
+  const uaData=navigator.userAgentData;
+  const touchPoints=navigator.maxTouchPoints||0;
+  const shortest=Math.min(window.innerWidth||0,window.innerHeight||0);
+  const longest=Math.max(window.innerWidth||0,window.innerHeight||0);
+  const isIPad=/iPad/i.test(ua)||(/Macintosh/i.test(ua)&&touchPoints>1);
+  const isAndroid=/Android/i.test(ua);
+  const isMobileUA=uaData&&typeof uaData.mobile==='boolean'?uaData.mobile:/Mobi|iPhone|iPod|Windows Phone/i.test(ua);
+  let device='desktop';
+  if(isIPad||(isAndroid&&!/Mobile/i.test(ua))||(touchPoints>1&&shortest>=600&&longest<=1400)) device='tablet';
+  else if(isMobileUA||shortest<600) device='phone';
+  const root=document.documentElement;
+  root.classList.remove('device-phone','device-tablet','device-desktop');
+  root.classList.add('device-'+device);
+  root.dataset.device=device;
+  const badge=document.getElementById('deviceBadge');
+  if(badge){badge.textContent=device==='phone'?'📱 手機版':device==='tablet'?'▣ 平板版':'💻 電腦版';}
+  try{localStorage.setItem('cloudVisionDeviceType',device)}catch(e){}
+  for(const id of ['generalEntry','professionalEntry','examinerEntry']){
+    const link=document.getElementById(id);
+    if(link){
+      const u=new URL(link.href,location.href);
+      u.searchParams.set('device',device);
+      link.href=u.pathname+u.search;
+    }
+  }
+  window.cloudVisionDeviceType=device;
+})();
 const vk='cloudVisionVisitorV1019';
 let vid=localStorage.getItem(vk);
 if(!vid){vid=(crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random());localStorage.setItem(vk,vid)}
@@ -2366,7 +2421,6 @@ function goReportNow(){
         (folder/'AI辨識.txt').write_text(transcript,encoding='utf-8-sig');(folder/'結果.json').write_text(json.dumps({'meta':meta,'result':result},ensure_ascii=False,indent=2),encoding='utf-8')
         return result
 
-
     def public_professional_reading_report_html(self) -> str:
         """專業閱讀完成後的獨立個人報告頁；手機、iPad、電腦共用。"""
         return r"""<!doctype html>
@@ -2863,11 +2917,9 @@ const KEY='cloudVisionAmslerScaleV20',CAL='cloudVisionCalibrationV10';let scale=
 </style></head><body><main class='wrap'>
 <section id='astig' class='card'><div id='astigStep' class='step'></div><div id='astigEye' class='eyeTag'></div><h1>散光鐘自我觀察</h1><div class='notice'>請戴平常使用的眼鏡，在約 30 cm 距離，遮住另一眼並注視中央黑點。點選答案後會自動進入下一項：先完成右眼與左眼散光鐘，再進行右眼與左眼黃斑部。</div><div class='dialControls'><button class='dialScaleBtn' onclick='setDialScale(.75)'>75%</button><button class='dialScaleBtn' onclick='setDialScale(1)'>100%</button><button class='dialScaleBtn' onclick='setDialScale(1.25)'>125%</button><button class='dialScaleBtn' onclick='setDialScale(1.5)'>150%</button><button class='dialScaleBtn' onclick='adjustDialScale(-.025)'>－微縮</button><div id='dialReadout' class='dialReadout'>倍率 100%</div><button class='dialScaleBtn' onclick='adjustDialScale(.025)'>＋微放</button></div><div class='dialWrap'><div id='dialStage' class='dialStage'><svg id='dialSvg' class='dialSvg' viewBox='0 0 720 460'></svg></div></div><div class='answers'><button class='answer' data-value='所有線條看起來一樣' onclick='chooseAstig(this)'>所有線條看起來一樣</button><button class='answer' data-value='有些方向較深或較清楚' onclick='chooseAstig(this)'>有些方向較深或較清楚</button></div></section>
 <section id='amsler' class='card hidden'><div id='amslerStep' class='step'></div><div id='amslerEye' class='eyeTag'></div><h1>黃斑部 Amsler 方格自我觀察</h1><div class='notice'><b>測驗距離：30 公分；方格標準尺寸：10 × 10 公分。</b><br>請遮住另一眼，持續注視中央黑點。點選答案後會自動進入下一眼；完成左眼後直接顯示測驗結果，不需要再按確定。</div><div class='scaleControls'><button class='scaleBtn' onclick='adjustAmsler(-0.02)'>－ 縮小</button><div id='scaleReadout' class='scaleReadout'></div><button class='scaleBtn' onclick='adjustAmsler(0.02)'>＋ 放大</button><button class='scaleBtn' onclick='resetAmsler()'>恢復 10 cm</button></div><div class='amslerWrap'><div id='amslerGrid' class='amsler'></div></div><div class='answers'><button class='answer' data-value='格線筆直且完整' onclick='chooseAmsler(this)'>格線筆直且完整</button><button class='answer' data-value='格線彎曲、模糊或缺損' onclick='chooseAmsler(this)'>格線彎曲、模糊或缺損</button></div><div class='nav'><button class='btn gray' onclick='backOneStep()'>返回上一項</button></div></section>
-<section id='result' class='card hidden'><div class='step'>完成</div><h1>個人測驗結果</h1><p class='small'>以下整合本次右眼、左眼、雙眼視力、左右眼完整紀錄，以及本次閱讀字高與 30 秒閱讀結果，僅供參考。</p><div id='resultGrid' class='resultGrid'></div><div id='recommendation' class='notice'></div><section class='survey'><h2>使用問卷</h2><p class='small'>問卷不需要填寫姓名、電話或 Email。</p><div class='question'><div class='questionTitle'>1. 您對本平台的整體使用感受？</div><div class='surveyChoices' data-group='satisfaction'><button class='surveyChoice' data-value='滿意' onclick='chooseSurvey(this)'>滿意</button><button class='surveyChoice' data-value='普通' onclick='chooseSurvey(this)'>普通</button><button class='surveyChoice' data-value='不滿意' onclick='chooseSurvey(this)'>不滿意</button></div></div><div class='question'><div class='questionTitle'>2. 您覺得本平台需要改善嗎？</div><div class='surveyChoices' data-group='needs_improvement'><button class='surveyChoice' data-value='不需要改善' onclick='chooseSurvey(this)'>不需要改善</button><button class='surveyChoice' data-value='需要改善' onclick='chooseSurvey(this)'>需要改善</button></div></div><div class='question'><div class='questionTitle'>3. 改善建議（選填）</div><textarea id='improvementSuggestion' maxlength='500' placeholder='請寫下您的建議'></textarea></div><div class='nav'><button id='submitSurveyBtn' class='btn green' onclick='submitSurvey()'>送出問卷</button></div><div id='submitStatus' class='submitStatus'></div></section><div class='nav'><button class='btn' onclick='restart()'>重新測驗</button><button class='btn green' onclick="location.href='/cloud'">返回首頁</button></div></section></main>
+<section id='result' class='card hidden'><div class='step'>完成</div><h1>個人測驗結果</h1><p class='small'>以下為本次右眼、左眼、雙眼視力及左右眼完整紀錄，僅供參考。</p><div id='resultGrid' class='resultGrid'></div><div id='recommendation' class='notice'></div><section class='survey'><h2>使用問卷</h2><p class='small'>問卷不需要填寫姓名、電話或 Email。</p><div class='question'><div class='questionTitle'>1. 您對本平台的整體使用感受？</div><div class='surveyChoices' data-group='satisfaction'><button class='surveyChoice' data-value='滿意' onclick='chooseSurvey(this)'>滿意</button><button class='surveyChoice' data-value='普通' onclick='chooseSurvey(this)'>普通</button><button class='surveyChoice' data-value='不滿意' onclick='chooseSurvey(this)'>不滿意</button></div></div><div class='question'><div class='questionTitle'>2. 您覺得本平台需要改善嗎？</div><div class='surveyChoices' data-group='needs_improvement'><button class='surveyChoice' data-value='不需要改善' onclick='chooseSurvey(this)'>不需要改善</button><button class='surveyChoice' data-value='需要改善' onclick='chooseSurvey(this)'>需要改善</button></div></div><div class='question'><div class='questionTitle'>3. 改善建議（選填）</div><textarea id='improvementSuggestion' maxlength='500' placeholder='請寫下您的建議'></textarea></div><div class='nav'><button id='submitSurveyBtn' class='btn green' onclick='submitSurvey()'>送出問卷</button></div><div id='submitStatus' class='submitStatus'></div></section><div class='nav'><button class='btn' onclick='restart()'>重新測驗</button><button class='btn green' onclick="location.href='/cloud'">返回首頁</button></div></section></main>
 <script>
 const storeKey='cloudVisionPublicAssessmentV35',scaleKey='cloudVisionPublicAmslerScaleV19',dialScaleKey='cloudVisionPublicDialScaleV19',calKey='cloudVisionCalibrationV10';
-let readingSummary=null;
-try{readingSummary=JSON.parse(sessionStorage.getItem('cloudVisionReadingSummary')||localStorage.getItem('cloudVisionReadingSummary')||'null')}catch(e){}
 let eyeVA={right_eye_va:'',left_eye_va:'',both_eyes_va:''};
 try{eyeVA=JSON.parse(sessionStorage.getItem('cloudVisionEyeVA')||localStorage.getItem('cloudVisionEyeVA')||'{}')||eyeVA}catch(e){}
 // 以網址參數為最高優先，避免 Safari 私密瀏覽或頁面切換時 storage 遺失。
@@ -2914,30 +2966,11 @@ let surveyState={satisfaction:'',needs_improvement:''};
 function showResult(){
   if(!(state.astig.right&&state.astig.left&&state.amsler.right&&state.amsler.left))return;
   document.getElementById('astig').classList.add('hidden');document.getElementById('amsler').classList.add('hidden');document.getElementById('result').classList.remove('hidden');
-  const rows=[['右眼視力',state.vision.right?Number(state.vision.right).toFixed(2):'未記錄',false],['左眼視力',state.vision.left?Number(state.vision.left).toFixed(2):'未記錄',false],['雙眼視力',state.vision.both?Number(state.vision.both).toFixed(2):'未記錄',false],['右眼散光鐘',state.astig.right,state.astig.right.includes('有些')],['左眼散光鐘',state.astig.left,state.astig.left.includes('有些')],['右眼黃斑部',state.amsler.right,state.amsler.right.includes('彎曲')],['左眼黃斑部',state.amsler.left,state.amsler.left.includes('彎曲')]];
-  if(readingSummary){
-    const va=Number(readingSummary.measured_va||0);
-    const dist=Number(readingSummary.viewing_distance_cm||0);
-    const fontH=Number(readingSummary.reading_font_height_cm||0);
-    const speed=Number(readingSummary.per_minute||0);
-    const acc=Number(readingSummary.accuracy||0);
-    const comp=Number(readingSummary.completion||0);
-    const unit=readingSummary.unit||'字';
-    rows.push(
-      ['本次測得視力',va>0?(va.toFixed(2)+(dist>0?'（'+dist.toFixed(0)+' cm）':'')):'未記錄',false],
-      ['閱讀字高',fontH>0?(fontH.toFixed(2)+' cm'):'未記錄',false],
-      ['30 秒閱讀結果',
-       readingSummary.silence
-         ? '未偵測到有效朗讀｜0 '+unit+'/分鐘'
-         : ('閱讀速度 '+speed.toFixed(1)+' '+unit+'/分鐘｜正確率 '+acc.toFixed(1)+'%｜完成率 '+comp.toFixed(1)+'%'),
-       false]
-    );
-  }
-  const bad=rows.slice(3,7).some(r=>r[2]);
+  const rows=[['右眼視力',state.vision.right?Number(state.vision.right).toFixed(2):'未記錄',false],['左眼視力',state.vision.left?Number(state.vision.left).toFixed(2):'未記錄',false],['雙眼視力',state.vision.both?Number(state.vision.both).toFixed(2):'未記錄',false],['右眼散光鐘',state.astig.right,state.astig.right.includes('有些')],['左眼散光鐘',state.astig.left,state.astig.left.includes('有些')],['右眼黃斑部',state.amsler.right,state.amsler.right.includes('彎曲')],['左眼黃斑部',state.amsler.left,state.amsler.left.includes('彎曲')]],bad=rows.slice(3).some(r=>r[2]);
   document.getElementById('resultGrid').innerHTML=rows.map(r=>`<div class="resultBox ${r[2]?'warn':'ok'}"><strong>${r[0]}</strong><br>${r[1]}</div>`).join('');
   document.getElementById('recommendation').textContent=bad?'本次有項目呈現不一致、彎曲、模糊或缺損。結果僅供參考。':'本次左右眼自我觀察未發現明顯異常，結果僅供參考。';scrollTo(0,0);saveCompletedResult()
 }
-function resultPayload(includeSurvey=false){let visitor='';try{visitor=localStorage.getItem('cloudVisionVisitorV1019')||''}catch(e){}let pro=null;try{pro=JSON.parse(localStorage.getItem('cloudVisionProfessionalV2')||'null')}catch(e){}const payload={consent:'yes',user_type:(sessionStorage.getItem('cloudVisionCurrentUserType')||((pro&&pro.name)?'專業人員':'一般使用者')),professional_name:(pro&&pro.name)||'',professional_role:(pro&&pro.role)||'',professional_purpose:(pro&&pro.purpose)||'',visual_acuity_right:state.vision.right,visual_acuity_left:state.vision.left,visual_acuity_both:state.vision.both,astigmatism_right:state.astig.right,astigmatism_left:state.astig.left,amsler_right:state.amsler.right,amsler_left:state.amsler.left,reading_summary:readingSummary||null,visitor_id:visitor,session_id:sessionStorage.getItem('cloudVisionCurrentSession')||((pro&&pro.session_id)||'')};if(includeSurvey){payload.satisfaction=surveyState.satisfaction;payload.needs_improvement=surveyState.needs_improvement;payload.improvement_suggestion=document.getElementById('improvementSuggestion').value.trim()}return payload}
+function resultPayload(includeSurvey=false){let visitor='';try{visitor=localStorage.getItem('cloudVisionVisitorV1019')||''}catch(e){}let pro=null;try{pro=JSON.parse(localStorage.getItem('cloudVisionProfessionalV2')||'null')}catch(e){}const payload={consent:'yes',user_type:(sessionStorage.getItem('cloudVisionCurrentUserType')||((pro&&pro.name)?'專業人員':'一般使用者')),professional_name:(pro&&pro.name)||'',professional_role:(pro&&pro.role)||'',professional_purpose:(pro&&pro.purpose)||'',visual_acuity_right:state.vision.right,visual_acuity_left:state.vision.left,visual_acuity_both:state.vision.both,astigmatism_right:state.astig.right,astigmatism_left:state.astig.left,amsler_right:state.amsler.right,amsler_left:state.amsler.left,visitor_id:visitor,session_id:sessionStorage.getItem('cloudVisionCurrentSession')||((pro&&pro.session_id)||'')};if(includeSurvey){payload.satisfaction=surveyState.satisfaction;payload.needs_improvement=surveyState.needs_improvement;payload.improvement_suggestion=document.getElementById('improvementSuggestion').value.trim()}return payload}
 let completionSaved=false;async function saveCompletedResult(){if(completionSaved)return;try{const r=await fetch('/cloud/result',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(resultPayload(false)),keepalive:true}),data=await r.json();if(!r.ok||!data.ok)throw new Error(data.error||'完成紀錄送出失敗');completionSaved=true;sessionStorage.setItem('cloudVisionCompletionSaved','1')}catch(e){setTimeout(saveCompletedResult,1500)}}
 function chooseSurvey(btn){const group=btn.parentElement.dataset.group;surveyState[group]=btn.dataset.value;btn.parentElement.querySelectorAll('.surveyChoice').forEach(x=>x.classList.toggle('selected',x===btn))}
 async function submitSurvey(){if(!surveyState.satisfaction){alert('請選擇整體使用感受。');return}if(!surveyState.needs_improvement){alert('請選擇是否需要改善。');return}const btn=document.getElementById('submitSurveyBtn'),status=document.getElementById('submitStatus');btn.disabled=true;status.textContent='正在送出問卷…';try{const r=await fetch('/cloud/result',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(resultPayload(true))}),data=await r.json();if(!r.ok||!data.ok)throw new Error(data.error||'送出失敗');completionSaved=true;status.textContent='✅ 感謝您的回饋，問卷已送出。';btn.textContent='問卷已送出';document.querySelectorAll('.surveyChoice,#improvementSuggestion').forEach(x=>x.disabled=true)}catch(e){btn.disabled=false;status.textContent='⚠️ 問卷未送出，請再試一次。'}}
@@ -3610,8 +3643,9 @@ function resetCalibration(){factor=1;localStorage.removeItem(KEY);render();docum
                 elif parsed.path == "/cloud/detail":
                     self._send(app.public_detail_html(query.get("id", [""])[0]))
                 elif parsed.path in ("/", "/remote"):
-                    # 直接進入 Cloud Vision 首頁，不顯示多餘中繼頁。
-                    self._redirect("/cloud")
+                    # 正式雲端首頁直接顯示原本已完成的雙入口頁面。
+                    # 不再使用「已連到 Cloud Vision」的臨時單按鈕轉接頁。
+                    self._send(app.public_home_html())
                 elif parsed.path in ("/control", "/participant", "/command", "/answer", "/state", "/estimate", "/control_estimate") and not app._valid_connection_session(query):
                     self._send("此連線頁面已失效，請重新掃描電腦畫面上的最新 QR Code。", 403, "text/plain; charset=utf-8")
                 elif parsed.path == "/control":
@@ -6909,8 +6943,6 @@ startCalibration();startParticipantPolling(true);
         self.root.after(50, self._center_chart_frame)
 
     def _on_canvas_resize(self, event: tk.Event) -> None:
-        if os.environ.get("CLOUD_MODE", "0") == "1":
-            return
         width = max(700, event.width)
         if self.current_view in ("dial", "amsler", "worth"):
             height = max(500, event.height)
@@ -6933,8 +6965,6 @@ startCalibration();startParticipantPolling(true);
         self._resize_after_id = self.root.after(80, self._center_chart_frame)
 
     def _center_chart_frame(self) -> None:
-        if os.environ.get("CLOUD_MODE", "0") == "1":
-            return
         if not self.canvas.winfo_exists():
             return
         width = max(700, self.canvas.winfo_width())
@@ -6958,10 +6988,232 @@ startCalibration();startParticipantPolling(true);
 
 
 def main() -> None:
+    cloud_mode = os.environ.get("CLOUDVISION_BACKEND", "").strip().lower() in {"1", "true", "yes", "on"}
     root = tk.Tk()
-    FullscreenAcuityChart(root)
+    FullscreenAcuityChart(root, cloud_mode=cloud_mode)
     root.mainloop()
 
 
-if __name__ == "__main__":
+# -----------------------------------------------------------------------------
+# Railway / Gunicorn WSGI compatibility layer
+# -----------------------------------------------------------------------------
+_backend_process = None
+_xvfb_process = None
+_backend_lock = threading.Lock()
+_backend_port = 8765
+
+
+def _ensure_virtual_display(env: dict | None = None) -> str:
+    """Ensure a working Xvfb display exists and return its DISPLAY value."""
+    global _xvfb_process
+    target_env = env if env is not None else os.environ
+    display = str(target_env.get("DISPLAY", "")).strip()
+    if display:
+        # Railway/Nixpacks 有時會留下 DISPLAY=:0，但實際沒有可連線的 X server。
+        # 必須先用 Tk 實測，成功才沿用；失敗則清除並啟動自己的 Xvfb。
+        probe = None
+        try:
+            probe = tk.Tk()
+            probe.withdraw()
+            probe.update_idletasks()
+            return display
+        except tk.TclError:
+            target_env.pop("DISPLAY", None)
+            os.environ.pop("DISPLAY", None)
+            display = ""
+        finally:
+            if probe is not None:
+                try:
+                    probe.destroy()
+                except Exception:
+                    pass
+
+    xvfb = shutil.which("Xvfb")
+    if not xvfb:
+        raise RuntimeError("找不到 Xvfb；請確認 nixpacks.toml 已安裝 xvfb。")
+
+    display = ":99"
+    socket_path = "/tmp/.X11-unix/X99"
+    lock_path = "/tmp/.X99-lock"
+    # Remove stale files only when no Xvfb process owned by this app is alive.
+    if _xvfb_process is None or _xvfb_process.poll() is not None:
+        for stale in (socket_path, lock_path):
+            try:
+                os.remove(stale)
+            except FileNotFoundError:
+                pass
+            except OSError:
+                pass
+        _xvfb_process = subprocess.Popen(
+            [xvfb, display, "-screen", "0", "1280x1024x24", "-ac", "-nolisten", "tcp"],
+            stdout=sys.stdout,
+            stderr=sys.stderr,
+        )
+
+    target_env["DISPLAY"] = display
+    os.environ["DISPLAY"] = display
+
+    deadline = time.time() + 10
+    while time.time() < deadline:
+        if _xvfb_process is not None and _xvfb_process.poll() is not None:
+            raise RuntimeError("Xvfb 啟動後立即結束，無法提供虛擬螢幕。")
+        if os.path.exists(socket_path):
+            # Verify that Tk can actually connect before continuing.
+            probe = None
+            try:
+                probe = tk.Tk()
+                probe.withdraw()
+                probe.update_idletasks()
+                return display
+            except tk.TclError:
+                pass
+            finally:
+                if probe is not None:
+                    try:
+                        probe.destroy()
+                    except Exception:
+                        pass
+        time.sleep(0.2)
+    raise RuntimeError("Xvfb 已啟動，但 Tkinter 在 10 秒內仍無法連上 DISPLAY=:99。")
+
+
+def _backend_is_ready(timeout: float = 0.5) -> bool:
+    try:
+        with socket.create_connection(("127.0.0.1", _backend_port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+def _ensure_backend_started() -> None:
+    global _backend_process
+    if _backend_is_ready():
+        return
+    with _backend_lock:
+        if _backend_is_ready():
+            return
+        if _backend_process is not None and _backend_process.poll() is None:
+            return
+        env = os.environ.copy()
+        env["CLOUDVISION_BACKEND"] = "1"
+        env["CLOUDVISION_BACKEND_PORT"] = str(_backend_port)
+        display = _ensure_virtual_display(env)
+        print(f"Cloud Vision parent prepared DISPLAY={display}", flush=True)
+        script_path = os.path.abspath(__file__)
+        command = [sys.executable, script_path]
+        _backend_process = subprocess.Popen(command, env=env, stdout=sys.stdout, stderr=sys.stderr)
+
+
+def _status_response(start_response, status: str, message: str):
+    body = message.encode("utf-8")
+    start_response(status, [("Content-Type", "text/plain; charset=utf-8"), ("Content-Length", str(len(body))), ("Cache-Control", "no-store")])
+    return [body]
+
+
+def app(environ, start_response):
+    """Railway 使用的 WSGI 入口；把請求轉送到原本 V4.4 網頁伺服器。"""
+    method = environ.get("REQUEST_METHOD", "GET")
+    path = environ.get("PATH_INFO", "/") or "/"
+
+    # Railway 的啟動健康檢查等待時間很短。先立即回覆 200，
+    # 同時在背景啟動原本的 Tk / HTTP 後端，避免部署被誤判失敗。
+    if path in {"/health", "/healthz", "/__health"}:
+        return _status_response(start_response, "200 OK", "ok")
+
+    _ensure_backend_started()
+    if not _backend_is_ready():
+        if path == "/":
+            body = ("<!doctype html><html lang='zh-Hant'><head><meta charset='utf-8'>"
+                    "<meta http-equiv='refresh' content='3'>"
+                    "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+                    "<title>Cloud Vision 啟動中</title></head>"
+                    "<body style='font-family:sans-serif;text-align:center;padding:48px'>"
+                    "<h2>Cloud Vision 正在啟動</h2><p>系統準備完成後會自動重新整理。</p>"
+                    "</body></html>").encode("utf-8")
+            start_response("200 OK", [
+                ("Content-Type", "text/html; charset=utf-8"),
+                ("Content-Length", str(len(body))),
+                ("Cache-Control", "no-store"),
+            ])
+            return [body]
+        return _status_response(start_response, "503 Service Unavailable", "Cloud Vision 後端正在啟動，請稍後重試。")
+
+    from http.client import HTTPConnection
+    query = environ.get("QUERY_STRING", "")
+    target = path + (("?" + query) if query else "")
+    try:
+        length = int(environ.get("CONTENT_LENGTH", "") or 0)
+    except ValueError:
+        length = 0
+    body = environ["wsgi.input"].read(length) if length > 0 else None
+    headers = {}
+    for key, value in environ.items():
+        if key.startswith("HTTP_"):
+            name = key[5:].replace("_", "-").title()
+            if name not in {"Host", "Connection", "Content-Length"}:
+                headers[name] = value
+    if environ.get("CONTENT_TYPE"):
+        headers["Content-Type"] = environ["CONTENT_TYPE"]
+    if body is not None:
+        headers["Content-Length"] = str(len(body))
+    headers["Host"] = f"127.0.0.1:{_backend_port}"
+    headers["X-Forwarded-Proto"] = environ.get("HTTP_X_FORWARDED_PROTO", "https")
+    headers["X-Forwarded-For"] = environ.get("HTTP_X_FORWARDED_FOR", environ.get("REMOTE_ADDR", ""))
+
+    connection = HTTPConnection("127.0.0.1", _backend_port, timeout=120)
+    try:
+        connection.request(method, target, body=body, headers=headers)
+        response = connection.getresponse()
+        response_body = response.read()
+        excluded = {"connection", "keep-alive", "proxy-authenticate", "proxy-authorization", "te", "trailers", "transfer-encoding", "upgrade", "content-length"}
+        response_headers = [(name, value) for name, value in response.getheaders() if name.lower() not in excluded]
+        response_headers.append(("Content-Length", str(len(response_body))))
+        start_response(f"{response.status} {response.reason}", response_headers)
+        return [response_body]
+    except Exception as exc:
+        return _status_response(start_response, "502 Bad Gateway", f"Cloud Vision 連線失敗：{exc}")
+    finally:
+        connection.close()
+
+
+def _run_railway_entrypoint() -> None:
+    """Railway 即使以 `python app.py` 啟動，也先切換到 Web 伺服器。"""
+    port = os.environ.get("PORT", "").strip()
+    is_railway = bool(port) or bool(os.environ.get("RAILWAY_ENVIRONMENT")) or bool(os.environ.get("RAILWAY_PROJECT_ID"))
+    is_backend = os.environ.get("CLOUDVISION_BACKEND", "").strip().lower() in {"1", "true", "yes", "on"}
+
+    if is_backend:
+        # The parent normally prepares DISPLAY before spawning this process.
+        # Keep this fallback so direct backend starts are safe too.
+        display = _ensure_virtual_display()
+        print(f"Cloud Vision backend verified DISPLAY={display}", flush=True)
+        main()
+        return
+
+    if is_railway:
+        # 避免 Railway 的自訂啟動命令仍是 `python app.py` 時直接呼叫 tk.Tk()。
+        bind_port = port or "8080"
+        gunicorn = shutil.which("gunicorn")
+        if gunicorn:
+            os.execv(gunicorn, [
+                gunicorn, "app:app",
+                "--bind", f"0.0.0.0:{bind_port}",
+                "--workers", "1",
+                "--threads", "4",
+                "--timeout", "180",
+                "--access-logfile", "-",
+                "--error-logfile", "-",
+            ])
+        # 極端情況：gunicorn 指令不存在時，使用 Python 內建 WSGI 伺服器。
+        from wsgiref.simple_server import make_server
+        with make_server("0.0.0.0", int(bind_port), app) as server:
+            print(f"Cloud Vision Web listening on 0.0.0.0:{bind_port}", flush=True)
+            server.serve_forever()
+        return
+
+    # 本機直接執行時仍保留原本桌面版。
     main()
+
+
+if __name__ == "__main__":
+    _run_railway_entrypoint()
